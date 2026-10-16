@@ -1,0 +1,22 @@
+# Secrets - never commit
+.env
+.env.*
+!.env.example
+
+# Customer / supplier data and generated reports (names, phone numbers) - never commit
+migration/reports/
+*.xlsx
+*.csv
+
+# Database backups contain all business data
+*.dump
+*.sql.gz
+backups/
+
+# Python / Node
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+
+reports/
