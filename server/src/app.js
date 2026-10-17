@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import { sessionMiddleware } from './auth/index.js';
 import { authRouter } from './auth/routes.js';
 import { healthRouter } from './routes/health.js';
+import { protectedRouter } from './routes/index.js';
 import { describeError } from './errors.js';
 
 export function createApp(config) {
@@ -19,7 +20,7 @@ export function createApp(config) {
   app.use(sessionMiddleware(config));
   app.use('/api/auth', authRouter);
 
-  // Later build-order items add their routers here.
+  app.use('/api', protectedRouter); // everything below needs a login; later build-order items add routers in routes/index.js
 
   app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.' }));
 

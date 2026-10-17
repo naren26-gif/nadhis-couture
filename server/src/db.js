@@ -56,6 +56,12 @@ export async function withTransaction(work) {
   }
 }
 
+// Routes use the database of the current request. Normally that is the pool; tests put a transaction client
+// on req.db so everything they write is rolled back (the app role cannot DELETE test rows afterwards).
+export function getDb(req) {
+  return req.db ?? getPool();
+}
+
 export async function closePool() {
   if (pool) {
     await pool.end();
