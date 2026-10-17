@@ -3,6 +3,8 @@ import { useAuth } from './auth.jsx';
 import Layout from './components/Layout.jsx';
 import Login from './pages/Login.jsx';
 import Home from './pages/Home.jsx';
+import Products from './pages/Products.jsx';
+import VariantFormPage from './pages/VariantFormPage.jsx';
 
 function RequireLogin({ children }) {
   const { user, checking } = useAuth();
@@ -23,6 +25,9 @@ export default function App() {
         }
       >
         <Route path="/" element={<Home />} />
+        <Route path="/products" element={<Products />} />
+        <Route path="/products/new" element={<VariantFormPage />} />
+        <Route path="/products/:id/edit" element={<VariantFormPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
