@@ -13,6 +13,7 @@ describe('describeError', () => {
       Object.assign(new Error('read ECONNRESET'), { code: 'ECONNRESET' }),
       new Error('Connection terminated unexpectedly'),
       new Error('timeout exceeded when trying to connect'),
+      Object.assign(new Error('(EAUTHQUERY) unsupported or invalid secret format'), { code: 'XX000' }), // pooler cannot read the role's password
     ]) {
       expect(isConnectionProblem(err)).toBe(true);
       const { status, message } = describeError(err);

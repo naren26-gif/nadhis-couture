@@ -63,7 +63,7 @@ const CONNECTION_CODES = new Set([
 ]);
 export function isConnectionProblem(err) {
   if (CONNECTION_CODES.has(err?.code)) return true;
-  return /connection terminated|timeout exceeded when trying to connect|password authentication failed|Client has encountered a connection error/i.test(
+  return /connection terminated|timeout exceeded when trying to connect|password authentication failed|Client has encountered a connection error|EAUTHQUERY|unsupported or invalid secret format/i.test(
     err?.message || '',
   );
 }

@@ -13,6 +13,13 @@
 -- Re-run it after adding any new table, view or function.
 -- =====================================================================
 
+-- 0. safety: an empty password would REMOVE the app role's password (PostgreSQL treats '' as "no password"), and the
+--    connection pooler then refuses every login ("EAUTHQUERY unsupported or invalid secret format"). Refuse to continue.
+SELECT length(:'app_password') < 12 AS password_too_short \gset
+\if :password_too_short
+  DO $$ BEGIN RAISE EXCEPTION 'app_password is empty or shorter than 12 characters. Set $env:APP_DB_PASSWORD first (letters and digits are fine), then run this script again.'; END $$;
+\endif
+
 -- 1. application login role (created if missing; password set/updated every run)
 SELECT format('CREATE ROLE app_backend LOGIN PASSWORD %L', :'app_password')
  WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_backend') \gexec
