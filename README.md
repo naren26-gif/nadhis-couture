@@ -13,8 +13,20 @@ Keep login behind one small backend module so it can switch to Amazon Cognito la
 
 ## Layout
     db/schema.sql                 tables, constraints, triggers, ship_order(), derived views (incl. shipments & courier settlements)
+    db/migrations/                numbered schema changes (001 = app users + login sessions); apply to dev first
     migration/migrate.py          Excel -> PostgreSQL (dry run by default)
     migration/reports/            latest reconciliation report + cleaned CSVs for review
+    server/                       Node + Express API (src/auth = the ONLY login module, src/routes, test/)
+    client/                       React (Vite) screens; brand colours are CSS variables in src/styles.css
+
+## Running the app (Phase 3)
+    npm install
+    # copy .env.example to .env, fill APP_DB_URL (dev, app_backend role) and a long random SESSION_SECRET
+    psql $env:ADMIN_DB_URL -v ON_ERROR_STOP=1 -1 -f db/migrations/001_app_user_and_sessions.sql
+    psql $env:ADMIN_DB_URL -v ON_ERROR_STOP=1 -v app_password="$env:APP_DB_PASSWORD" -f db/supabase_hardening.sql
+    npm run create-user      # first owner login (password typed at a hidden prompt)
+    npm run dev              # http://localhost:5173
+    npm test                 # tests use the DEV database only
 
 ## Running (Windows PowerShell; on Mac/Linux use `export NAME=value` instead of `$env:NAME = "value"`)
     pip install -r migration/requirements.txt

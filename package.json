@@ -1,0 +1,18 @@
+{
+  "name": "nadhis-couture",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Nadhi's Couture - inventory, orders and accounts app",
+  "workspaces": ["server", "client"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "concurrently -n server,client -c magenta,blue \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w client",
+    "start": "npm run start -w server",
+    "test": "npm test -w server",
+    "create-user": "npm run create-user -w server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

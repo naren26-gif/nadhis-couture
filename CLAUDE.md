@@ -35,6 +35,8 @@ AWS RDS later). The database schema and business rules are DONE and tested (`db/
 - Mobile-friendly screens (the owner may use a phone).
 
 ## Commands (update as they are created)
-- Install: (to be filled in)
-- Run dev server: (to be filled in)
-- Run tests: (to be filled in)
+- Install: `npm install` (from the project root; npm workspaces: `server/` and `client/`)
+- Run dev server: `npm run dev` (backend on :3000, screens on http://localhost:5173)
+- Run tests: `npm test` (runs against the DEV database; needs `.env`)
+- Create a login: `npm run create-user`
+- Build screens for production: `npm run build`

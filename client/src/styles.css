@@ -1,0 +1,199 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+
+/* ---------- Brand colours: change them here and the whole app follows ---------- */
+:root {
+  --ivory: #FFF9ED;
+  --ivory-deep: #F6EDDA;       /* subtle bands, table headers */
+  --purple: #5B1A7A;
+  --purple-dark: #451260;      /* pressed buttons */
+  --purple-soft: #F1E6F7;      /* hover / selected rows */
+  --purple-mid: #8A4DA8;       /* secondary accents */
+  --card: #FFFFFF;
+  --text: #2A2030;
+  --text-soft: #6B5F73;
+  --border: #E6DCCB;
+  --good: #1F7A4D;
+  --warn: #B26A00;
+  --bad: #B3261E;
+  --bad-soft: #FCEBEA;
+  --good-soft: #E6F4EC;
+  --warn-soft: #FFF1D6;
+
+  --radius: 12px;
+  --shadow: 0 1px 2px rgba(91, 26, 122, 0.06), 0 4px 14px rgba(91, 26, 122, 0.06);
+  --ease: 160ms ease;
+  --font: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--ivory);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { color: var(--purple); font-weight: 600; line-height: 1.25; margin: 0 0 12px; }
+h1 { font-size: 1.5rem; }
+h2 { font-size: 1.2rem; }
+p { margin: 0 0 12px; }
+a { color: var(--purple); }
+
+:focus-visible { outline: 3px solid var(--purple-mid); outline-offset: 2px; }
+
+/* ---------- Layout ---------- */
+.topbar {
+  background: var(--purple);
+  color: var(--ivory);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: var(--shadow);
+}
+.topbar-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 16px;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.brand {
+  font-weight: 600;
+  font-size: 1.1rem;
+  letter-spacing: 0.02em;
+  color: var(--ivory);
+  text-decoration: none;
+  margin-right: auto;
+}
+.brand img { height: 32px; display: block; }
+.nav { display: flex; gap: 4px; align-items: center; }
+.nav a, .nav button.linklike {
+  color: var(--ivory);
+  text-decoration: none;
+  padding: 8px 14px;
+  border-radius: 999px;
+  transition: background var(--ease);
+  font: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  min-height: 40px;
+}
+.nav a:hover, .nav button.linklike:hover { background: rgba(255, 249, 237, 0.14); }
+.nav a.active { background: var(--ivory); color: var(--purple); font-weight: 500; }
+.nav .who { opacity: 0.85; font-size: 0.85rem; padding: 0 8px; }
+.menu-toggle {
+  display: none;
+  background: none;
+  border: 1px solid rgba(255, 249, 237, 0.5);
+  color: var(--ivory);
+  border-radius: 8px;
+  min-height: 40px;
+  padding: 0 12px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.page { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+
+@media (max-width: 720px) {
+  .menu-toggle { display: block; }
+  .topbar-inner { flex-wrap: wrap; padding-top: 8px; padding-bottom: 8px; }
+  .nav { display: none; flex-direction: column; align-items: stretch; width: 100%; padding-bottom: 8px; }
+  .nav.open { display: flex; }
+  .nav .who { padding: 8px 14px; }
+}
+
+/* ---------- Cards, forms, buttons ---------- */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+}
+
+label { display: block; font-weight: 500; margin-bottom: 6px; font-size: 0.9rem; }
+.field { margin-bottom: 16px; }
+.hint { color: var(--text-soft); font-size: 0.82rem; margin-top: 4px; }
+
+input[type='text'], input[type='email'], input[type='password'], input[type='number'], input[type='search'], select, textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  font: inherit;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition: border-color var(--ease), box-shadow var(--ease);
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--purple);
+  box-shadow: 0 0 0 3px var(--purple-soft);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 20px;
+  font: inherit;
+  font-weight: 500;
+  color: var(--ivory);
+  background: var(--purple);
+  border: 1px solid var(--purple);
+  border-radius: 10px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background var(--ease), box-shadow var(--ease), transform var(--ease);
+}
+.btn:hover { background: var(--purple-dark); box-shadow: var(--shadow); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+.btn.secondary { background: transparent; color: var(--purple); }
+.btn.secondary:hover { background: var(--purple-soft); }
+.btn.full { width: 100%; }
+
+.alert { padding: 10px 14px; border-radius: 10px; margin-bottom: 16px; font-size: 0.92rem; }
+.alert.error { background: var(--bad-soft); color: var(--bad); border: 1px solid #F3C6C3; }
+.alert.ok { background: var(--good-soft); color: var(--good); border: 1px solid #C2E3D0; }
+.alert.warn { background: var(--warn-soft); color: var(--warn); border: 1px solid #F3DDAA; }
+
+.muted { color: var(--text-soft); }
+.loading { color: var(--text-soft); padding: 32px; text-align: center; }
+
+/* ---------- Login ---------- */
+.login-wrap { min-height: 100%; display: grid; place-items: center; padding: 24px 16px; }
+.login-card { width: 100%; max-width: 400px; }
+.login-brand { text-align: center; margin-bottom: 20px; }
+.login-brand .wordmark { font-size: 1.7rem; font-weight: 600; color: var(--purple); }
+.login-brand img { max-height: 72px; }
+
+/* ---------- Home ---------- */
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-top: 16px; }
+.tile {
+  display: block;
+  text-decoration: none;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  transition: transform var(--ease), border-color var(--ease);
+}
+a.tile:hover { transform: translateY(-2px); border-color: var(--purple-mid); }
+.tile strong { display: block; color: var(--purple); margin-bottom: 4px; }
+.tile.soon { opacity: 0.55; }
