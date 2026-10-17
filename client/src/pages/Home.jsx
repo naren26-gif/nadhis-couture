@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth.jsx';
 
-const SOON = ['Inventory', 'Suppliers & customers', 'Purchases', 'Orders', 'Shipping', 'Courier month-end', 'Reports'];
+const SOON = ['Suppliers & customers', 'Purchases', 'Orders', 'Shipping', 'Courier month-end', 'Reports'];
 
 export default function Home() {
   const { user } = useAuth();
@@ -13,6 +13,10 @@ export default function Home() {
         <Link className="tile" to="/products">
           <strong>Products</strong>
           <span className="muted">Add and edit products, sizes, colours and prices</span>
+        </Link>
+        <Link className="tile" to="/inventory">
+          <strong>Inventory</strong>
+          <span className="muted">See stock on hand and correct it with a reason</span>
         </Link>
         {SOON.map((name) => (
           <div className="tile soon" key={name}>
