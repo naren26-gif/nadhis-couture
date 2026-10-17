@@ -307,4 +307,22 @@ input:disabled, select:disabled { background: var(--ivory-deep); color: var(--te
 
 /* ---------- Pop-up ---------- */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(42, 32, 48, 0.45); display: grid; place-items: center; padding: 16px; z-index: 50; }
-.modal { width: 100%; max-width: 420px; box-shadow: 0 12px 40px rgba(42, 32, 48, 0.25); }
+.modal {
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 12px 40px rgba(42, 32, 48, 0.25);
+  /* a pop-up taller than the screen scrolls inside itself instead of running off the bottom */
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px); /* phones: excludes the browser's own bars */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+/* the buttons stay visible at the bottom of a long pop-up while its content scrolls under them */
+.modal .actions {
+  position: sticky;
+  bottom: -20px; /* the pop-up has 20px of padding; this makes the bar sit flush with its bottom edge */
+  background: var(--card);
+  margin: 8px -20px -20px;
+  padding: 12px 20px 20px;
+  border-top: 1px solid var(--border);
+}

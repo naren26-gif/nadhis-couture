@@ -9,6 +9,15 @@ export default function Modal({ title, onClose, children }) {
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  // the page behind a pop-up should not scroll while it is open (several pop-ups can be open at once: restore the previous state)
+  useEffect(() => {
+    const before = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = before;
+    };
+  }, []);
+
   // Drawn directly in <body> so a pop-up opened from inside a form is not a form nested in a form.
   return createPortal(
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
