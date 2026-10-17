@@ -5,12 +5,7 @@ import { useAuth } from '../auth.jsx';
 import { formatInrText } from '../money.js';
 import { useLookups } from '../useLookups.js';
 import Modal from '../components/Modal.jsx';
-
-function StockBadge({ onHand }) {
-  if (onHand <= 0) return <span className="badge bad">Out of stock</span>;
-  if (onHand <= 2) return <span className="badge warn">{onHand} left</span>;
-  return <span className="badge good">{onHand} in stock</span>;
-}
+import StockBadge from '../components/StockBadge.jsx';
 
 function MarginCell({ variant }) {
   const negative = variant.margin.startsWith('-');

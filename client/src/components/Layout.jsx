@@ -26,6 +26,7 @@ export default function Layout() {
           <nav id="main-nav" className={`nav${open ? ' open' : ''}`}>
             <NavLink to="/" end onClick={close}>Home</NavLink>
             <NavLink to="/products" onClick={close}>Products</NavLink>
+            <NavLink to="/inventory" onClick={close}>Inventory</NavLink>
             <span className="who">{user.name}</span>
             <button className="linklike" onClick={logout}>Log out</button>
           </nav>
