@@ -56,7 +56,7 @@ inventoryRouter.get('/', async (req, res, next) => {
     );
     const totals = await getDb(req).query(
       `SELECT COALESCE(SUM(b.on_hand), 0)::int AS pieces, COALESCE(SUM(b.on_hand * b.unit_cost), 0) AS value
-         FROM inventory_balance b JOIN product_variant v ON v.variant_id = b.variant_id WHERE v.is_active`,
+         FROM inventory_balance b`, // ALL variants: a hidden variant still holds stock (and the Reports screen counts it too)
     );
     res.json({
       variants: rows.map((row) => ({ ...row, unit_cost: formatMoney(row.unit_cost), stock_value: formatMoney(row.stock_value) })),
