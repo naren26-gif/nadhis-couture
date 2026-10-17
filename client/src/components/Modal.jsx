@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 // A simple pop-up. Closes with the Escape key or by clicking the dimmed background.
 export default function Modal({ title, onClose, children }) {
@@ -8,12 +9,14 @@ export default function Modal({ title, onClose, children }) {
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  return (
+  // Drawn directly in <body> so a pop-up opened from inside a form is not a form nested in a form.
+  return createPortal(
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal card" role="dialog" aria-modal="true" aria-label={title}>
         <h2>{title}</h2>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

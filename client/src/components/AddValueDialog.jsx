@@ -9,6 +9,8 @@ export default function AddValueDialog({ title, label, placeholder, onSave, onCl
 
   async function submit(e) {
     e.preventDefault();
+    // This pop-up sits inside the variant form; without this, React also fires that form's Save.
+    e.stopPropagation();
     setError('');
     setBusy(true);
     try {
