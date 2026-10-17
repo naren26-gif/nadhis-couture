@@ -33,6 +33,7 @@ export async function startTestApp() {
 
   return {
     app,
+    client, // lets a test look at the database inside the same rolled-back transaction
     async stop() {
       await client.query('ROLLBACK');
       client.release();

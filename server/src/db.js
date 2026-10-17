@@ -56,6 +56,21 @@ export async function withTransaction(work) {
   }
 }
 
+// Same all-or-nothing idea for a route. Normally that is a real transaction. In tests the whole request already runs
+// inside one rolled-back transaction (req.db), so a SAVEPOINT is used instead.
+export async function inTransaction(req, work) {
+  if (!req.db) return withTransaction(work);
+  await req.db.query('SAVEPOINT inner_work');
+  try {
+    const result = await work(req.db);
+    await req.db.query('RELEASE SAVEPOINT inner_work');
+    return result;
+  } catch (err) {
+    await req.db.query('ROLLBACK TO SAVEPOINT inner_work').catch(() => {});
+    throw err;
+  }
+}
+
 // Routes use the database of the current request. Normally that is the pool; tests put a transaction client
 // on req.db so everything they write is rolled back (the app role cannot DELETE test rows afterwards).
 export function getDb(req) {
