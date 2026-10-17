@@ -110,8 +110,8 @@ a { color: var(--purple); }
 
 .page { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
 
-/* with 9 menu links the bar only fits on wide screens; below that it becomes the "Menu" button */
-@media (max-width: 1280px) {
+/* with 10 menu links the bar only fits on wide screens; below that it becomes the "Menu" button */
+@media (max-width: 1400px) {
   .menu-toggle { display: block; }
   .topbar-inner { flex-wrap: wrap; padding-top: 8px; padding-bottom: 8px; }
   .nav { display: none; flex-direction: column; align-items: stretch; width: 100%; padding-bottom: 8px; }
@@ -286,6 +286,50 @@ input:disabled, select:disabled { background: var(--ivory-deep); color: var(--te
 .total-line { margin: 16px 0; font-size: 1.05rem; }
 .page > h2 { margin: 24px 0 12px; }
 .dialog-h { margin: 18px 0 8px; font-size: 1rem; }
+
+/* ---------- Reports ---------- */
+.period-bar { display: flex; flex-wrap: wrap; gap: 0 16px; align-items: flex-end; padding-bottom: 8px; margin-bottom: 8px; }
+.period-bar .field { min-width: 180px; margin-bottom: 12px; }
+.period-note { flex: 1 1 260px; margin: 0 0 14px; font-size: 0.88rem; }
+.refetching { opacity: 0.55; transition: opacity var(--ease); } /* a refetch keeps the old numbers on screen, dimmed */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 8px; }
+.stat-tile { display: flex; flex-direction: column; gap: 2px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 16px; }
+.stat-tile strong { font-size: 1.45rem; color: var(--purple); line-height: 1.2; }
+.stat-tile strong.bad-text { color: var(--bad); }
+.stat-tile strong.good-text { color: var(--good); }
+.stat-tile .tile-label { font-size: 0.82rem; color: var(--text-soft); }
+.stat-tile .tile-note { font-size: 0.8rem; }
+a.stat-tile:hover { border-color: var(--purple); }
+.report-card { margin-top: 20px; }
+.report-card h2 { margin: 0 0 4px; }
+.report-card .table-card { border: 0; box-shadow: none; margin-top: 8px; }
+.report-controls { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 8px 0; }
+.small-seg { margin: 0; min-width: 240px; max-width: 320px; }
+.small-seg button { min-height: 36px; }
+tr.total-row td { font-weight: 600; border-top: 2px solid var(--border); background: var(--ivory); }
+
+/* charts (plain SVG; colours for the two series are set on the marks; grid and axes stay recessive) */
+.chart { margin: 10px 0 4px; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.88rem; color: var(--text); margin-bottom: 6px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+.swatch-line { display: inline-block; width: 14px; height: 3px; border-radius: 2px; }
+/* on a phone the chart keeps a readable size and scrolls sideways inside its card instead of shrinking its text to nothing */
+.chart-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.chart-hint { display: none; margin: 4px 0 0; font-size: 0.78rem; }
+@media (max-width: 640px) { .chart-hint { display: block; } }
+.chart-wrap { position: relative; min-width: 560px; }
+.chart-wrap svg { display: block; width: 100%; height: auto; }
+.chart .grid { stroke: #E6DCCB; stroke-width: 1; }
+.chart .baseline { stroke: #B9AC98; stroke-width: 1; }
+.chart .axis-text { fill: #6B5F73; font-size: 11px; font-family: inherit; }
+.chart .hover-band { fill: rgba(91, 26, 122, 0.07); }
+.chart svg rect[tabindex]:focus { outline: none; stroke: var(--purple); stroke-width: 2; }
+.chart-empty { padding: 24px 0; text-align: center; }
+.chart-tip { position: absolute; top: 4px; transform: translateX(-50%); background: var(--card); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); padding: 8px 10px; font-size: 0.85rem; pointer-events: none; white-space: nowrap; z-index: 2; }
+.chart-tip-month { color: var(--text-soft); font-size: 0.78rem; margin-bottom: 2px; }
+.chart-tip-row { display: flex; align-items: center; gap: 6px; }
+.chart-tip-row span { color: var(--text-soft); }
 .tab-h { margin: 8px 0 12px; font-size: 1.15rem; }
 .tab-h:not(:first-child) { margin-top: 28px; }
 .pick-list { max-height: 36vh; overflow-y: auto; margin-bottom: 8px; }

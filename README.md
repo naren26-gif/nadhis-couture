@@ -9,9 +9,11 @@ Keep login behind one small backend module so it can switch to Amazon Cognito la
 - [x] Phase 0 decisions (below)
 - [x] Phase 1 (v0.3): `db/schema.sql` + `migration/migrate.py` (dry run, load and business rules tested on PostgreSQL 16)
 - [ ] Phase 2: load into Supabase and harden (guided setup in progress; all owner decisions confirmed)
-- [ ] Phase 3: app screens. Brief steps 1-8 are built and tested on dev (login, products, inventory, suppliers and customers,
-      purchases, orders with customer refunds of overpayments, shipping, courier month-end). Remaining: step 9 dashboard/reports.
-- [ ] Phase 4: reports/dashboard  - [ ] Phase 5: tests, backups, cutover (migrations 002-005 must be applied to production at cutover)
+- [x] Phase 3: app screens. All 9 brief steps are built and tested on dev (login, products, inventory, suppliers and customers,
+      purchases, orders with customer refunds of overpayments, shipping, courier month-end, reports).
+- [x] Phase 4: reports/dashboard (`/reports`: read-only; sales counted by ORDER date; profit excludes shipping; money in/out by
+      payment date; stock, amounts owed and amounts to collect are "as of now")
+- [ ] Phase 5: tests, backups, cutover (migrations 002-005 must be applied to production at cutover; production still untouched)
 
 ## Layout
     db/schema.sql                 tables, constraints, triggers, ship_order(), derived views (incl. shipments & courier settlements)

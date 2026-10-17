@@ -32,6 +32,7 @@ export default function Layout() {
             <NavLink to="/purchases" onClick={close}>Purchases</NavLink>
             <NavLink to="/suppliers" onClick={close}>Suppliers</NavLink>
             <NavLink to="/customers" onClick={close}>Customers</NavLink>
+            <NavLink to="/reports" onClick={close}>Reports</NavLink>
             <span className="who">{user.name}</span>
             <button className="linklike" onClick={logout}>Log out</button>
           </nav>

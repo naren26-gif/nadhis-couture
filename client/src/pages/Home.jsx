@@ -1,8 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth.jsx';
 
-const SOON = ['Reports'];
-
 export default function Home() {
   const { user } = useAuth();
   return (
@@ -42,12 +40,10 @@ export default function Home() {
           <strong>Customers</strong>
           <span className="muted">Who you sell to, with phone numbers</span>
         </Link>
-        {SOON.map((name) => (
-          <div className="tile soon" key={name}>
-            <strong>{name}</strong>
-            <span className="muted">Coming soon</span>
-          </div>
-        ))}
+        <Link className="tile" to="/reports">
+          <strong>Reports</strong>
+          <span className="muted">Sales, profit, money in and out, stock value, and what you owe</span>
+        </Link>
       </div>
     </>
   );
