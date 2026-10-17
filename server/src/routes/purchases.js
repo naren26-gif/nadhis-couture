@@ -7,54 +7,12 @@ import Decimal from 'decimal.js';
 import { getDb, inTransaction } from '../db.js';
 import { nextCode } from '../codes.js';
 import { UserError } from '../errors.js';
-import { formatMoney, parseMoney } from '../money.js';
+import { formatMoney } from '../money.js';
+import { dateField, moneyField, optionalText, quantity, uuid } from '../validation.js';
 
 export const purchasesRouter = Router();
 
-// ---------- input checks (plain-English messages) ----------
-const uuid = (message) => z.string({ required_error: message }).uuid(message);
-
-function todayInIndia() {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD
-}
-
-const dateField = (label) =>
-  z
-    .string({ required_error: `Please enter the ${label}.` })
-    .refine((text) => {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
-      const d = new Date(`${text}T00:00:00Z`);
-      return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === text;
-    }, `Please enter a valid ${label}.`)
-    .refine((text) => text <= todayInIndia(), `The ${label} cannot be in the future.`);
-
-const moneyField = (label, { positive }) =>
-  z
-    .string({ required_error: `Please enter the ${label}.` })
-    .transform((text, ctx) => {
-      const value = parseMoney(text);
-      if (!value || (positive && value.lte(0))) {
-        ctx.addIssue({
-          code: 'custom',
-          message: `The ${label} must be a number${positive ? ' above 0' : ', 0 or more'}, with at most 2 decimals (for example 450 or 450.50).`,
-        });
-        return z.NEVER;
-      }
-      return value;
-    });
-
-const optionalText = (max, label) =>
-  z
-    .union([z.string().trim().max(max, `The ${label} is too long (${max} characters at most).`), z.literal(''), z.null()])
-    .optional()
-    .transform((value) => value || null);
-
-const quantity = z
-  .number({ required_error: 'Please enter the quantity.', invalid_type_error: 'The quantity must be a whole number, 1 or more.' })
-  .int('The quantity must be a whole number, 1 or more.')
-  .min(1, 'The quantity must be a whole number, 1 or more.')
-  .max(100000, 'That quantity is too large.');
-
+// ---------- input checks (plain-English messages; shared helpers live in ../validation.js) ----------
 const lineSchema = z.object({
   item_id: z.string().uuid().optional(), // present when editing an existing line
   variant_id: uuid('Please choose the product for every line.'),

@@ -46,6 +46,9 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO app_backend;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE ON TABLES TO app_backend;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO app_backend;
 REVOKE UPDATE ON inventory_movement FROM app_backend;       -- stock history is append-only (also blocked by a trigger)
+-- The ONLY table (besides app_session) where the app may delete: an unshipped order line can be removed while an order is
+-- edited. The database still refuses it for a line that has shipped (foreign key), and whole orders can never be deleted.
+GRANT DELETE ON order_item TO app_backend;
 
 -- 4. Row Level Security on every table: only app_backend gets a policy. The owner (postgres, used for
 --    migrations/admin) bypasses RLS as usual. Views run with the caller's rights so RLS still applies.
