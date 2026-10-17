@@ -4,6 +4,9 @@ import Layout from './components/Layout.jsx';
 import Login from './pages/Login.jsx';
 import Home from './pages/Home.jsx';
 import Inventory from './pages/Inventory.jsx';
+import OrderDetail from './pages/OrderDetail.jsx';
+import OrderFormPage from './pages/OrderFormPage.jsx';
+import Orders from './pages/Orders.jsx';
 import Parties from './pages/Parties.jsx';
 import PartyFormPage from './pages/PartyFormPage.jsx';
 import Products from './pages/Products.jsx';
@@ -35,6 +38,10 @@ export default function App() {
         <Route path="/products/new" element={<VariantFormPage />} />
         <Route path="/products/:id/edit" element={<VariantFormPage />} />
         <Route path="/inventory" element={<Inventory />} />
+        <Route path="/orders" element={<Orders />} />
+        <Route path="/orders/new" element={<OrderFormPage />} />
+        <Route path="/orders/:id" element={<OrderDetail />} />
+        <Route path="/orders/:id/edit" element={<OrderFormPage />} />
         <Route path="/purchases" element={<Purchases />} />
         <Route path="/purchases/new" element={<PurchaseFormPage />} />
         <Route path="/purchases/:id" element={<PurchaseDetail />} />

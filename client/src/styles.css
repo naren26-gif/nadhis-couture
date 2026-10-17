@@ -58,7 +58,7 @@ a { color: var(--purple); }
   box-shadow: var(--shadow);
 }
 .topbar-inner {
-  max-width: 1100px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: 0 16px;
   min-height: 64px;
@@ -84,7 +84,7 @@ a { color: var(--purple); }
 .nav a, .nav button.linklike {
   color: var(--purple);
   text-decoration: none;
-  padding: 8px 14px;
+  padding: 8px 11px;
   border-radius: 999px;
   transition: background var(--ease);
   font: inherit;
@@ -110,7 +110,8 @@ a { color: var(--purple); }
 
 .page { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
 
-@media (max-width: 720px) {
+/* with 8 menu links the bar only fits on wide screens; below that it becomes the "Menu" button */
+@media (max-width: 1100px) {
   .menu-toggle { display: block; }
   .topbar-inner { flex-wrap: wrap; padding-top: 8px; padding-bottom: 8px; }
   .nav { display: none; flex-direction: column; align-items: stretch; width: 100%; padding-bottom: 8px; }
