@@ -8,6 +8,9 @@ let custA;
 let custB;
 let variantA; // list 500.00
 let variantB; // list 300.00
+let variantC; // only 1 in stock: for the partial shipment
+let variantD; // 2 in stock: for the refusals
+let variantE; // 1 in stock: for "waiting for stock" and "what to buy"
 let courierId;
 
 const api = () => request(t.app);
@@ -27,9 +30,15 @@ beforeAll(async () => {
     })).body.variant;
   variantA = await make('ZZH-M-BLK', 'M', '500.00');
   variantB = await make('ZZH-L-BLK', 'L', '300.00');
+  variantC = await make('ZZH-S-BLK', 'S', '300.00');
+  variantD = await make('ZZH-XS-BLK', 'XS', '300.00');
+  variantE = await make('ZZH-XL-BLK', 'XL', '300.00');
   courierId = (await sql("SELECT supplier_id FROM supplier WHERE supplier_code = 'SPLR0004'")).rows[0].supplier_id;
-  await stock(variantA, 5);
-  await stock(variantB, 1);
+  await stock(variantA, 100); // plenty, so tests that are not about stock never run short
+  await stock(variantB, 100);
+  await stock(variantC, 1);
+  await stock(variantD, 2);
+  await stock(variantE, 1);
 });
 afterAll(async () => {
   await t.stop();
@@ -55,7 +64,8 @@ const ship = (items, overrides = {}) =>
 
 describe('sending parcels', () => {
   it('ships what is in stock now (partial), charges shipping on the order, and then ships the rest', async () => {
-    const o = await newOrder(custA, [[variantA, 3], [variantB, 2]]); // B: only 1 in stock
+    const o = await newOrder(custA, [[variantA, 3], [variantC, 2]]); // C: only 1 in stock
+    const a0 = await onHand(variantA);
     const first = await ship([[o, 0, 3], [o, 1, 1]], { shipping_charge: '60', courier_cost: '45', tracking_number: 'TRK1' });
     expect(first.status).toBe(201);
     const p = first.body.shipment;
@@ -65,29 +75,27 @@ describe('sending parcels', () => {
 
     const now = await getOrder(o);
     expect(now).toMatchObject({ status: 'Partially Shipped', shipped_qty: 4, items_total: '2100.00', shipping_charged: '60.00', order_total: '2160.00', balance: '2160.00' });
-    expect(await onHand(variantA)).toBe(2); // 5 - 3
-    expect(await onHand(variantB)).toBe(0);
+    expect(await onHand(variantA)).toBe(a0 - 3);
+    expect(await onHand(variantC)).toBe(0);
 
-    await stock(variantB, 4);
+    await stock(variantC, 4); // restock, then the rest can go
     const rest = await ship([[o, 1, 1]], { shipping_charge: '0' });
     expect(rest.status).toBe(201);
     expect((await getOrder(o)).status).toBe('Shipped');
-    expect(await onHand(variantB)).toBe(4);
-    await stock(variantA, 3); // keep A at 5 for the next tests
+    expect(await onHand(variantC)).toBe(3); // 1 shipped, 4 added, 1 shipped
   });
 
   it('refuses in plain English and changes nothing: not enough stock, too many, finished orders', async () => {
-    const o = await newOrder(custA, [[variantB, 9]]);
-    const before = await onHand(variantB);
+    const o = await newOrder(custA, [[variantD, 9]]); // D: only 2 in stock
     const noStock = await ship([[o, 0, 9]]);
     expect(noStock.status).toBe(400);
-    expect(noStock.body.error).toBe(`Not enough stock for ZZH-L-BLK: only ${before} in stock.`);
+    expect(noStock.body.error).toBe('Not enough stock for ZZH-XS-BLK: only 2 in stock.');
     const tooMany = await ship([[o, 0, 10]]);
-    expect(tooMany.body.error).toBe(`Only 9 left to ship on ZZH-L-BLK (${o.code}).`);
-    expect(await onHand(variantB)).toBe(before);
+    expect(tooMany.body.error).toBe(`Only 9 left to ship on ZZH-XS-BLK (${o.code}).`);
+    expect(await onHand(variantD)).toBe(2); // both refused: nothing moved
     expect((await getOrder(o)).status).toBe('Pending');
 
-    await stock(variantB, 9);
+    await stock(variantD, 7); // now 9 in stock
     expect((await ship([[o, 0, 9]])).status).toBe(201);
     const again = await ship([[o, 0, 1]]);
     expect(again.body.error).toBe(`${o.code} has already been fully shipped.`);
@@ -218,9 +226,8 @@ describe('lists and what to buy', () => {
   });
 
   it('shows orders ready to ship, what to buy, and the dialog data for an order and its customer', async () => {
-    await stock(variantB, 0 + 1);
     const ready = await newOrder(custA, [[variantA, 1]]);
-    const waiting = await newOrder(custA, [[variantB, 50]]);
+    const waiting = await newOrder(custA, [[variantE, 50]]); // E: only 1 in stock
     const other = await newOrder(custB, [[variantA, 1]]);
 
     const list = await api().get('/api/shipments/ready');
@@ -230,7 +237,7 @@ describe('lists and what to buy', () => {
     expect(partlyReady.short_units).toBeGreaterThan(0);
 
     const buy = await api().get('/api/shipments/to-buy');
-    const row = buy.body.items.find((i) => i.sku === 'ZZH-L-BLK');
+    const row = buy.body.items.find((i) => i.sku === 'ZZH-XL-BLK');
     expect(row.units_to_buy).toBe(row.units_waiting - row.on_hand);
 
     const dialog = await api().get('/api/shipments/candidates').query({ order_id: ready.id });

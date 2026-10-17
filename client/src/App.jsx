@@ -10,6 +10,8 @@ import Orders from './pages/Orders.jsx';
 import Parties from './pages/Parties.jsx';
 import PartyFormPage from './pages/PartyFormPage.jsx';
 import Products from './pages/Products.jsx';
+import ShipmentDetail from './pages/ShipmentDetail.jsx';
+import Shipping from './pages/Shipping.jsx';
 import PurchaseDetail from './pages/PurchaseDetail.jsx';
 import PurchaseFormPage from './pages/PurchaseFormPage.jsx';
 import Purchases from './pages/Purchases.jsx';
@@ -46,6 +48,8 @@ export default function App() {
         <Route path="/purchases/new" element={<PurchaseFormPage />} />
         <Route path="/purchases/:id" element={<PurchaseDetail />} />
         <Route path="/purchases/:id/edit" element={<PurchaseFormPage />} />
+        <Route path="/shipping" element={<Shipping />} />
+        <Route path="/shipments/:id" element={<ShipmentDetail />} />
         <Route path="/suppliers" element={<Parties kind="supplier" />} />
         <Route path="/suppliers/new" element={<PartyFormPage kind="supplier" />} />
         <Route path="/suppliers/:id/edit" element={<PartyFormPage kind="supplier" />} />

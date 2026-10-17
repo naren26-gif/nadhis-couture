@@ -28,6 +28,7 @@ export default function Layout() {
             <NavLink to="/products" onClick={close}>Products</NavLink>
             <NavLink to="/inventory" onClick={close}>Inventory</NavLink>
             <NavLink to="/orders" onClick={close}>Orders</NavLink>
+            <NavLink to="/shipping" onClick={close}>Shipping</NavLink>
             <NavLink to="/purchases" onClick={close}>Purchases</NavLink>
             <NavLink to="/suppliers" onClick={close}>Suppliers</NavLink>
             <NavLink to="/customers" onClick={close}>Customers</NavLink>

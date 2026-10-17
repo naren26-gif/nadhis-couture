@@ -110,8 +110,8 @@ a { color: var(--purple); }
 
 .page { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
 
-/* with 8 menu links the bar only fits on wide screens; below that it becomes the "Menu" button */
-@media (max-width: 1100px) {
+/* with 9 menu links the bar only fits on wide screens; below that it becomes the "Menu" button */
+@media (max-width: 1280px) {
   .menu-toggle { display: block; }
   .topbar-inner { flex-wrap: wrap; padding-top: 8px; padding-bottom: 8px; }
   .nav { display: none; flex-direction: column; align-items: stretch; width: 100%; padding-bottom: 8px; }
@@ -285,6 +285,8 @@ input:disabled, select:disabled { background: var(--ivory-deep); color: var(--te
 .line-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .total-line { margin: 16px 0; font-size: 1.05rem; }
 .page > h2 { margin: 24px 0 12px; }
+.dialog-h { margin: 18px 0 8px; font-size: 1rem; }
+.seg.tabs { margin-bottom: 16px; max-width: 520px; }
 .top-gap-sm { margin-top: 10px; }
 .block { display: block; font-size: 0.85rem; }
 .seg { display: flex; margin-bottom: 16px; border: 1px solid var(--purple); border-radius: 10px; overflow: hidden; }

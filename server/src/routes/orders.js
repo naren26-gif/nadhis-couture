@@ -103,7 +103,7 @@ async function fetchOrder(db, id) {
     [id],
   );
   const parcels = await db.query(
-    `SELECT s.shipment_code AS code, s.shipment_status AS status, to_char(s.shipped_on, 'YYYY-MM-DD') AS shipped_on,
+    `SELECT s.shipment_id AS id, s.shipment_code AS code, s.shipment_status AS status, to_char(s.shipped_on, 'YYYY-MM-DD') AS shipped_on,
             s.tracking_number, s.shipping_charged, (s.billed_order_id = $1) AS billed_here, SUM(si.quantity)::int AS units_here
        FROM shipment s
        JOIN shipment_item si ON si.shipment_id = s.shipment_id

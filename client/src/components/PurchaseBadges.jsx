@@ -6,6 +6,12 @@ export function PaymentBadge({ state }) {
   return <span className={`badge ${PAYMENT[state] || 'muted-badge'}`}>{state}</span>;
 }
 
+const SHIPMENT_STATUS = { Shipped: 'warn', 'In Transit': 'warn', Delivered: 'good' };
+
+export function ShipmentStatusBadge({ status }) {
+  return <span className={`badge ${SHIPMENT_STATUS[status] || 'muted-badge'}`}>{status}</span>;
+}
+
 export function OrderStatusBadge({ status }) {
   return <span className={`badge ${ORDER_STATUS[status] || 'muted-badge'}`}>{status}</span>;
 }

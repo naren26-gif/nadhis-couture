@@ -3,6 +3,7 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { formatInrText, toPaise } from '../money.js';
 import Modal from '../components/Modal.jsx';
+import ShipDialog from '../components/ShipDialog.jsx';
 import { OrderStatusBadge, PaymentBadge } from '../components/PurchaseBadges.jsx';
 
 const todayInIndia = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
@@ -138,6 +139,7 @@ export default function OrderDetail() {
   const [flash, setFlash] = useState(location.state?.flash || '');
   const [paying, setPaying] = useState(false);
   const [refunding, setRefunding] = useState(false);
+  const [shipping, setShipping] = useState(location.search.includes('ship=1')); // the Shipping page links here to start a parcel
 
   const load = useCallback(async () => {
     try {
@@ -163,6 +165,7 @@ export default function OrderDetail() {
   if (error) return <><p><Link to="/orders">&larr; Back to orders</Link></p><div className="alert error" role="alert">{error}</div></>;
   if (!order) return <div className="loading">Loading...</div>;
 
+  const canShip = order.editable && order.lines.some((l) => l.remaining > 0);
   const hasCredit = Number(order.credit_held) > 0;
   const hasRefunds = Number(order.refunded) > 0;
   const who = order.customer_name ? `${order.customer_name}${order.customer_phone ? ` · ${order.customer_phone}` : ''}` : 'Walk-in customer';
@@ -173,6 +176,7 @@ export default function OrderDetail() {
       <div className="page-head">
         <h1>{order.code}</h1>
         <div className="row-actions">
+          {canShip && <button className="btn" onClick={() => setShipping(true)}>Ship</button>}
           <button className="btn" onClick={() => setPaying(true)}>Record payment</button>
           {hasCredit && <button className="btn secondary" onClick={() => setRefunding(true)}>Refund customer</button>}
           {order.editable && <Link className="btn secondary" to={`/orders/${order.id}/edit`}>Edit</Link>}
@@ -252,7 +256,7 @@ export default function OrderDetail() {
                 <li key={p.code}>
                   <span className="qty">{p.units_here}</span>
                   <span>
-                    <strong>{p.code}</strong> &ndash; {p.status}
+                    <Link to={`/shipments/${p.id}`}><strong>{p.code}</strong></Link> &ndash; {p.status}
                     <span className="muted block">
                       Shipped {p.shipped_on}{p.tracking_number && <> &middot; tracking {p.tracking_number}</>}
                       {p.billed_here && Number(p.shipping_charged) > 0 && <> &middot; shipping charged {formatInrText(p.shipping_charged)}</>}
@@ -286,6 +290,13 @@ export default function OrderDetail() {
         </div>
       )}
 
+      {shipping && (
+        <ShipDialog
+          order={order}
+          onClose={() => setShipping(false)}
+          onDone={async (message) => { setShipping(false); setFlash(message); await load(); }}
+        />
+      )}
       {refunding && (
         <RefundDialog
           order={order}
