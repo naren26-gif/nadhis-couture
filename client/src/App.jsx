@@ -7,6 +7,9 @@ import Inventory from './pages/Inventory.jsx';
 import Parties from './pages/Parties.jsx';
 import PartyFormPage from './pages/PartyFormPage.jsx';
 import Products from './pages/Products.jsx';
+import PurchaseDetail from './pages/PurchaseDetail.jsx';
+import PurchaseFormPage from './pages/PurchaseFormPage.jsx';
+import Purchases from './pages/Purchases.jsx';
 import VariantFormPage from './pages/VariantFormPage.jsx';
 
 function RequireLogin({ children }) {
@@ -32,6 +35,10 @@ export default function App() {
         <Route path="/products/new" element={<VariantFormPage />} />
         <Route path="/products/:id/edit" element={<VariantFormPage />} />
         <Route path="/inventory" element={<Inventory />} />
+        <Route path="/purchases" element={<Purchases />} />
+        <Route path="/purchases/new" element={<PurchaseFormPage />} />
+        <Route path="/purchases/:id" element={<PurchaseDetail />} />
+        <Route path="/purchases/:id/edit" element={<PurchaseFormPage />} />
         <Route path="/suppliers" element={<Parties kind="supplier" />} />
         <Route path="/suppliers/new" element={<PartyFormPage kind="supplier" />} />
         <Route path="/suppliers/:id/edit" element={<PartyFormPage kind="supplier" />} />
