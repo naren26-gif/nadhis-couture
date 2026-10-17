@@ -5,7 +5,7 @@ export const customersRouter = buildPartyRouter({
   table: 'customer',
   idColumn: 'customer_id',
   codeColumn: 'customer_code',
-  sequence: 'customer_code_seq',
   prefix: 'CUST',
+  width: 6, // CUST000001 (the shop's existing customer codes are 6 digits)
   hasContactPerson: false,
 });

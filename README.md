@@ -72,6 +72,11 @@ names and is git-ignored. Turn the Supabase **Data API off** (the app never uses
 - Never set order status Pending/Partially Shipped/Shipped/Delivered by hand: use the ship_* functions and shipment status updates. After editing order lines, call `refresh_order_shipping_status(order_id)`.
 - Never ship more than ordered (enforced by trigger); one parcel = one customer; stock can never go negative.
 - Keep business codes (SKU, PO_, SO_, TRAN_, SPLR, CUST) as unique text; never renumber.
+- New codes = highest existing code + 1, in the shop's existing width (SPLR0001, CUST000001, PO_0000001, TRAN_00000001),
+  worked out inside the saving transaction under a lock (`server/src/codes.js`). No database counters, so a failed save
+  or a test run never skips a number. (Migrations 002/003 created `supplier_code_seq`, `customer_code_seq`,
+  `po_code_seq`, `transaction_code_seq`; the app no longer uses them. `shipment_code_seq` is part of the original
+  schema and can still skip numbers after a rolled-back shipment.)
 - Amounts are INR numeric(12,2); phone numbers are text; timestamps shown in Asia/Kolkata.
 - The backend must run each business action (create order, ship, record payment) in one DB transaction.
 

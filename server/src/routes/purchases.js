@@ -5,6 +5,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import Decimal from 'decimal.js';
 import { getDb, inTransaction } from '../db.js';
+import { nextCode } from '../codes.js';
 import { UserError } from '../errors.js';
 import { formatMoney, parseMoney } from '../money.js';
 
@@ -261,11 +262,12 @@ purchasesRouter.post('/', async (req, res, next) => {
         total = v.total;
       }
 
+      const poCode = await nextCode(db, { table: 'purchase_order', column: 'po_code', prefix: 'PO_', width: 7 });
       const po = await db.query(
         `INSERT INTO purchase_order (po_code, supplier_id, order_date, purchase_type, total_amount, notes)
-         VALUES ('PO_' || lpad(nextval('po_code_seq')::text, 7, '0'), $1, $2, $3, $4, $5)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING purchase_order_id`,
-        [v.supplier_id, v.order_date, v.purchase_type, total.toFixed(2), v.notes],
+        [poCode, v.supplier_id, v.order_date, v.purchase_type, total.toFixed(2), v.notes],
       );
       const poId = po.rows[0].purchase_order_id;
       let lineNo = 0;
@@ -451,11 +453,12 @@ purchasesRouter.post('/:id/payments', async (req, res, next) => {
       if (balance.lte(0)) throw new UserError('This purchase is already fully paid.', 400);
       if (p.amount.gt(balance)) throw new UserError(`The balance is only ₹${balance.toFixed(2)}. Please enter that or less.`, 400);
 
+      const tranCode = await nextCode(db, { table: 'payment_transaction', column: 'transaction_code', prefix: 'TRAN_', width: 8 });
       await db.query(
         `INSERT INTO payment_transaction
            (transaction_code, txn_date, direction, amount, payment_method, payment_status, purchase_order_id, note)
-         VALUES ('TRAN_' || lpad(nextval('transaction_code_seq')::text, 8, '0'), $1, 'Out', $2, $3, 'Completed', $4, $5)`,
-        [p.txn_date, p.amount.toFixed(2), p.payment_method, poId, p.note],
+         VALUES ($1, $2, 'Out', $3, $4, 'Completed', $5, $6)`,
+        [tranCode, p.txn_date, p.amount.toFixed(2), p.payment_method, poId, p.note],
       );
     });
     res.status(201).json({ purchase: await fetchPurchase(getDb(req), poId) });

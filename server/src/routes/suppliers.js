@@ -5,7 +5,7 @@ export const suppliersRouter = buildPartyRouter({
   table: 'supplier',
   idColumn: 'supplier_id',
   codeColumn: 'supplier_code',
-  sequence: 'supplier_code_seq',
   prefix: 'SPLR',
+  width: 4, // SPLR0001
   hasContactPerson: true,
 });

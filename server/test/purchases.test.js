@@ -65,8 +65,9 @@ describe('creating purchases', () => {
     expect(po).toMatchObject({ payment_state: 'Unpaid', receipt_status: 'Not received', paid: '0.00', balance: '1370.30' });
     expect(await onHand(variantA)).toBe(0); // ordering does not add stock
 
+    // next code = last + 1, no gaps
     const next = await stockPo();
-    expect(Number(next.body.purchase.code.slice(3))).toBeGreaterThan(Number(po.code.slice(3)));
+    expect(Number(next.body.purchase.code.slice(3))).toBe(Number(po.code.slice(3)) + 1);
   });
 
   it('does not trust a total sent by the browser for stock purchases', async () => {
@@ -180,12 +181,16 @@ describe('payments to the supplier', () => {
     expect(first.status).toBe(201);
     expect(first.body.purchase).toMatchObject({ paid: '500.00', balance: '870.30', payment_state: 'Partial' });
     expect(first.body.purchase.payments[0].code).toMatch(/^TRAN_\d{8}$/);
+    const refusedOver = await pay({ amount: '99999' });
+    expect(refusedOver.status).toBe(400); // a refused payment must not use up a TRAN_ number
 
     const over = await pay({ amount: '870.31' });
     expect(over.status).toBe(400);
     expect(over.body.error).toBe('The balance is only ₹870.30. Please enter that or less.');
 
     const last = await pay({ amount: '870.30', note: 'Final' });
+    const [a, b] = last.body.purchase.payments.map((x) => Number(x.code.slice(5)));
+    expect(b).toBe(a + 1); // consecutive: nothing skipped in between
     expect(last.body.purchase).toMatchObject({ paid: '1370.30', balance: '0.00', payment_state: 'Paid' });
 
     const more = await pay({ amount: '1' });

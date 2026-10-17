@@ -3,7 +3,8 @@
 // this code, never user input.
 import { Router } from 'express';
 import { z } from 'zod';
-import { getDb } from '../db.js';
+import { getDb, inTransaction } from '../db.js';
+import { nextCode } from '../codes.js';
 import { requireRole } from '../auth/index.js';
 import { UserError } from '../errors.js';
 
@@ -19,7 +20,7 @@ const optional = (schema) =>
 const text = (label, max) =>
   optional(z.string().trim().max(max, `The ${label} is too long (${max} characters at most).`));
 
-export function buildPartyRouter({ noun, table, idColumn, codeColumn, sequence, prefix, hasContactPerson }) {
+export function buildPartyRouter({ noun, table, idColumn, codeColumn, prefix, width, hasContactPerson }) {
   const router = Router();
   const idSchema = z.string({ required_error: `Please choose the ${noun}.` }).uuid(`That ${noun} was not found.`);
 
@@ -95,19 +96,21 @@ export function buildPartyRouter({ noun, table, idColumn, codeColumn, sequence, 
   });
 
   router.post('/', async (req, res, next) => {
-    const db = getDb(req);
-    let v;
     try {
-      v = bodySchema.parse(req.body);
-      await checkPhoneFree(db, v.phone, null);
+      const v = bodySchema.parse(req.body);
       const fields = ['name', 'phone', 'email', 'location', ...(hasContactPerson ? ['contact_person'] : [])];
-      const { rows } = await db.query(
-        `INSERT INTO ${table} (${codeColumn}, ${fields.join(', ')})
-         VALUES ('${prefix}' || lpad(nextval('${sequence}')::text, 4, '0'), ${fields.map((_, i) => `$${i + 1}`).join(', ')})
-         RETURNING ${idColumn} AS id`,
-        fields.map((f) => v[f]),
-      );
-      res.status(201).json({ item: await fetchOne(db, rows[0].id) });
+      const id = await inTransaction(req, async (tx) => {
+        await checkPhoneFree(tx, v.phone, null);
+        const code = await nextCode(tx, { table, column: codeColumn, prefix, width });
+        const { rows } = await tx.query(
+          `INSERT INTO ${table} (${codeColumn}, ${fields.join(', ')})
+           VALUES ($1, ${fields.map((_, i) => `$${i + 2}`).join(', ')})
+           RETURNING ${idColumn} AS id`,
+          [code, ...fields.map((f) => v[f])],
+        );
+        return rows[0].id;
+      });
+      res.status(201).json({ item: await fetchOne(getDb(req), id) });
     } catch (err) {
       next(err);
     }

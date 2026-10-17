@@ -13,27 +13,32 @@ afterAll(async () => {
 });
 
 const KINDS = [
-  { path: '/api/suppliers', prefix: 'SPLR', extra: { contact_person: 'Zz Contact' } },
-  { path: '/api/customers', prefix: 'CUST', extra: {} },
+  { path: '/api/suppliers', prefix: 'SPLR', width: 4, extra: { contact_person: 'Zz Contact' } },
+  { path: '/api/customers', prefix: 'CUST', width: 6, extra: {} },
 ];
 
 const number = (code) => Number(code.replace(/^\D+/, ''));
 
-describe.each(KINDS)('$path', ({ path, prefix, extra }) => {
+describe.each(KINDS)('$path', ({ path, prefix, width, extra }) => {
   const make = (overrides = {}) =>
     request(t.app).post(path).send({ name: 'Zz Test Person', phone: '+91 90000 11111', ...extra, ...overrides });
 
-  it('generates a code that continues after the highest existing one and is never reused', async () => {
+  it('gives the highest existing code + 1 in the shop\'s width, with no gaps even after a failed save', async () => {
     const before = await request(t.app).get(path).query({ inactive: 'true' });
-    const highest = Math.max(0, ...before.body.items.map((i) => number(i.code)));
+    const standard = new RegExp(`^${prefix}\\d{${width}}$`);
+    const highest = Math.max(0, ...before.body.items.filter((i) => standard.test(i.code)).map((i) => number(i.code)));
+    const code = (n) => prefix + String(n).padStart(width, '0');
 
     const first = await make({ phone: '+91 90000 22221' });
     expect(first.status).toBe(201);
-    expect(first.body.item.code).toMatch(new RegExp(`^${prefix}\\d{4,}$`));
-    expect(number(first.body.item.code)).toBeGreaterThan(highest);
+    expect(first.body.item.code).toBe(code(highest + 1));
+
+    // a refused save (duplicate phone) must not use up a number
+    const refused = await make({ phone: '+91 90000 22221' });
+    expect(refused.status).toBe(409);
 
     const second = await make({ phone: '+91 90000 22222' });
-    expect(number(second.body.item.code)).toBeGreaterThan(number(first.body.item.code));
+    expect(second.body.item.code).toBe(code(highest + 2));
   });
 
   it('keeps the phone as text and the code unchanged when editing', async () => {
