@@ -56,6 +56,11 @@ async function connectWithOneRetry() {
 // Run several statements as ONE all-or-nothing business action.
 export async function withTransaction(work) {
   const client = await connectWithOneRetry();
+  // While a connection is checked out the pool no longer watches it. If the hosted pooler drops it between two
+  // statements, the connection emits an 'error' event; with nobody listening, Node would CRASH THE WHOLE SERVER.
+  // Listening here turns that into a normal failed request (the next statement fails, we roll back and report it).
+  const onClientError = (err) => console.error('Database connection problem during a transaction:', err.code || '', err.message);
+  client.on('error', onClientError);
   try {
     await client.query('BEGIN');
     const result = await work(client);
@@ -65,6 +70,7 @@ export async function withTransaction(work) {
     await client.query('ROLLBACK').catch(() => {});
     throw err;
   } finally {
+    client.removeListener('error', onClientError);
     client.release();
   }
 }
