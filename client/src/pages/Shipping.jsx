@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { formatInrText } from '../money.js';
 import { ShipmentStatusBadge } from '../components/PurchaseBadges.jsx';
+import CourierMonthEnd from './CourierMonthEnd.jsx';
 
 const TABS = [
   ['ready', 'Ready to ship'],
   ['buy', 'What to buy'],
   ['parcels', 'Parcels'],
+  ['courier', 'Courier payments'],
 ];
 
 function ReadyTab() {
@@ -177,7 +179,11 @@ function ParcelsTab() {
 }
 
 export default function Shipping() {
-  const [tab, setTab] = useState('ready');
+  // the tab lives in the address (?tab=courier) so the Home tile and links can open a specific tab
+  const [params, setParams] = useSearchParams();
+  const asked = params.get('tab');
+  const tab = TABS.some(([key]) => key === asked) ? asked : 'ready';
+  const setTab = (key) => setParams(key === 'ready' ? {} : { tab: key }, { replace: true });
   return (
     <>
       <div className="page-head"><h1>Shipping</h1></div>
@@ -189,6 +195,7 @@ export default function Shipping() {
       {tab === 'ready' && <ReadyTab />}
       {tab === 'buy' && <BuyTab />}
       {tab === 'parcels' && <ParcelsTab />}
+      {tab === 'courier' && <CourierMonthEnd />}
     </>
   );
 }

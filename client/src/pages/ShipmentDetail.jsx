@@ -180,7 +180,7 @@ export default function ShipmentDetail() {
         {shipment.note && <div className="muted">{shipment.note}</div>}
         <div className="badge-row top-gap-sm">
           <ShipmentStatusBadge status={shipment.status} />
-          {shipment.paid_to_courier ? <span className="badge good">Courier paid ({shipment.settlement_code})</span> : <span className="badge muted-badge">Courier not paid yet</span>}
+          {shipment.paid_to_courier ? <Link to="/shipping?tab=courier"><span className="badge good">Courier paid ({shipment.settlement_code})</span></Link> : <Link to="/shipping?tab=courier"><span className="badge muted-badge">Courier not paid yet</span></Link>}
         </div>
         <dl className="money-list">
           <div><dt>Charged to customer</dt><dd>{formatInrText(shipment.shipping_charged)}</dd></div>

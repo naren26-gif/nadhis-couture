@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth.jsx';
 
-const SOON = ['Courier month-end', 'Reports'];
+const SOON = ['Reports'];
 
 export default function Home() {
   const { user } = useAuth();
@@ -25,6 +25,10 @@ export default function Home() {
         <Link className="tile" to="/shipping">
           <strong>Shipping</strong>
           <span className="muted">Send parcels, track delivery, and see what to buy</span>
+        </Link>
+        <Link className="tile" to="/shipping?tab=courier">
+          <strong>Courier month-end</strong>
+          <span className="muted">Pay the courier once a month and check it matches</span>
         </Link>
         <Link className="tile" to="/purchases">
           <strong>Purchases</strong>
