@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { dbUrl } from './config.js';
+import { isConnectionProblem } from './errors.js';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -40,9 +41,21 @@ export async function query(text, params = [], db = getPool()) {
   return db.query(text, params);
 }
 
+// Getting a connection can fail for a moment (the hosted database's connection pooler occasionally refuses one).
+// Nothing has been done yet at that point, so trying once more after a short pause is always safe.
+async function connectWithOneRetry() {
+  try {
+    return await getPool().connect();
+  } catch (err) {
+    if (!isConnectionProblem(err)) throw err;
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    return getPool().connect();
+  }
+}
+
 // Run several statements as ONE all-or-nothing business action.
 export async function withTransaction(work) {
-  const client = await getPool().connect();
+  const client = await connectWithOneRetry();
   try {
     await client.query('BEGIN');
     const result = await work(client);
