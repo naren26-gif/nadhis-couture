@@ -41,7 +41,8 @@ product through interactive input controls (dropdowns, number fields, buttons) a
 - Have automated tests that run against the DEV database (never production), including the shipping and stock rules.
 
 ## Out of scope (by decision)
-Cancellations, returns, refunds, multiple currencies, online payments, online storefront.
+Cancellations, returns, multiple currencies, online payments, online storefront. (Refunds are out of scope EXCEPT repaying a
+customer's overpayment, added later by decision: see README.)
 
 ## Data note
 Production and dev are separate Supabase projects. Dev holds a copy of the migrated data for realistic testing and may be

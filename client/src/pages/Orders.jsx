@@ -4,7 +4,7 @@ import { api } from '../api.js';
 import { formatInrText } from '../money.js';
 import { OrderStatusBadge, PaymentBadge } from '../components/PurchaseBadges.jsx';
 
-const NO_FILTERS = { search: '', customer: '', status: '', payment: '', waiting: false };
+const NO_FILTERS = { search: '', customer: '', status: '', payment: '', waiting: false, credit: false };
 
 export default function Orders() {
   const location = useLocation();
@@ -62,6 +62,9 @@ export default function Orders() {
           <div className="tile"><strong>{data.totals.open_orders}</strong>orders still to ship</div>
           <div className="tile"><strong>{formatInrText(data.totals.to_collect)}</strong>still to collect from customers</div>
           <div className="tile"><strong>{data.totals.waiting_for_stock}</strong>orders waiting for stock</div>
+          {Number(data.totals.credit_held) > 0 && (
+            <div className="tile"><strong>{formatInrText(data.totals.credit_held)}</strong>credit held for customers ({data.totals.credit_orders} {data.totals.credit_orders === 1 ? 'order' : 'orders'})</div>
+          )}
         </div>
       )}
 
@@ -95,6 +98,10 @@ export default function Orders() {
           <label className="check">
             <input type="checkbox" checked={filters.waiting} onChange={(e) => setFilter('waiting')(e.target.checked)} />
             Only orders waiting for stock
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={filters.credit} onChange={(e) => setFilter('credit')(e.target.checked)} />
+            Only orders holding customer credit
           </label>
           {hasFilters && <button type="button" className="linkbtn" onClick={() => setFilters(NO_FILTERS)}>Clear filters</button>}
         </div>

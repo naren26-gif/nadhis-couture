@@ -67,6 +67,7 @@ export default function OrderFormPage() {
   const [busy, setBusy] = useState(false);
   const [addingCustomer, setAddingCustomer] = useState(false);
   const [removedNote, setRemovedNote] = useState(false);
+  const [paid, setPaid] = useState(null); // what the customer has already paid and been charged for shipping (edit only)
 
   useEffect(() => {
     (async () => {
@@ -78,6 +79,7 @@ export default function OrderFormPage() {
           const { order: o } = await api(`/orders/${id}`);
           if (!o.editable) throw new Error(`This order is already ${o.status.toLowerCase()}, so it can't be edited.`);
           setCode(o.code);
+          setPaid({ received: o.received, shipping: o.shipping_charged });
           setForm({ customer_id: o.customer_id || '', order_date: o.order_date, notes: o.notes || '' });
           // products on this order that have since been hidden must still show up in their dropdown
           const known = new Set(vs.variants.map((v) => v.variant_id));
@@ -120,6 +122,11 @@ export default function OrderFormPage() {
     [lines, variants],
   );
   const grandTotal = figures.reduce((sum, f) => sum + (f?.total ?? 0), 0);
+
+  // editing a paid order down leaves money to give back: say so before saving
+  const receivedPaise = paid ? toPaise(paid.received) ?? 0 : 0;
+  const newOrderPaise = grandTotal + (paid ? toPaise(paid.shipping) ?? 0 : 0);
+  const creditAfterSave = Math.max(receivedPaise - newOrderPaise, 0);
 
   async function submit(e) {
     e.preventDefault();
@@ -231,6 +238,13 @@ export default function OrderFormPage() {
           })}
           <button type="button" className="btn secondary" onClick={() => setLines((ls) => [...ls, newLine()])}>+ Add another product</button>
           {removedNote && <div className="alert warn top-gap-sm">A removed line is deleted when you press Save.</div>}
+          {creditAfterSave > 0 && (
+            <div className="alert warn top-gap-sm">
+              The customer has already paid <strong>{formatInr(receivedPaise)}</strong>. After this change the order is worth{' '}
+              <strong>{formatInr(newOrderPaise)}</strong>, so <strong>{formatInr(creditAfterSave)}</strong> will be credit you owe the customer.
+              You can pay it back with "Refund customer" on the order page.
+            </div>
+          )}
           <div className="margin-line good total-line">Order total (products): <strong>{formatInr(grandTotal)}</strong><span className="muted"> &middot; shipping is added when parcels are sent</span></div>
 
           <div className="actions">

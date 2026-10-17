@@ -239,6 +239,114 @@ describe('list and existing orders', () => {
   });
 });
 
+describe('refunds of customer overpayments', () => {
+  // an order of 2949.97 that the customer paid 3000.00 for, so 50.03 is held as credit
+  const overpaid = async () => {
+    const o = (await newOrder()).body.order;
+    const paid = await api().post(`/api/orders/${o.id}/payments`).send({ amount: '3000', txn_date: today(), payment_method: method, confirm_advance: true });
+    expect(paid.status).toBe(201);
+    return paid.body.order;
+  };
+  const refund = (o, body = {}) =>
+    api().post(`/api/orders/${o.id}/refunds`).send({ amount: '20.03', txn_date: today(), payment_method: method, reason: 'Customer reduced the order', ...body });
+
+  it('repays part, then the rest, and the credit clears', async () => {
+    const o = await overpaid();
+    expect(o).toMatchObject({ credit_held: '50.03', received: '3000.00', refunded: '0.00' });
+
+    const part = await refund(o);
+    expect(part.status).toBe(201);
+    expect(part.body.order).toMatchObject({ paid_in: '3000.00', refunded: '20.03', received: '2979.97', credit_held: '30.00', balance: '-30.00' });
+    const row = part.body.order.payments.at(-1);
+    expect(row).toMatchObject({ direction: 'Out', amount: '20.03', note: 'Customer reduced the order' });
+
+    const rest = await refund(o, { amount: '30.00', reason: 'Rest of the credit' });
+    expect(rest.body.order).toMatchObject({ refunded: '50.03', received: '2949.97', credit_held: '0.00', balance: '0.00', payment_state: 'Paid' });
+    const codes = rest.body.order.payments.map((p) => Number(p.code.slice(5)));
+    expect(codes).toEqual([codes[0], codes[0] + 1, codes[0] + 2]); // payment, refund, refund: consecutive
+
+    const view = await sql('SELECT received, refunded, paid_in FROM order_summary WHERE order_id = $1', [o.id]);
+    expect(view.rows[0]).toMatchObject({ received: '2949.97', refunded: '50.03', paid_in: '3000.00' });
+  });
+
+  it('covers the case of reducing a paid order: the credit appears and can be refunded', async () => {
+    const o = (await newOrder({ lines: [{ variant_id: variantA.variant_id, quantity: 2 }] })).body.order; // 2 x 500 = 1000
+    await api().post(`/api/orders/${o.id}/payments`).send({ amount: '1000', txn_date: today(), payment_method: method });
+    const fewer = await edit(o, { lines: asLines(o, { 0: { quantity: 1 } }) });
+    expect(fewer.body.order).toMatchObject({ order_total: '500.00', received: '1000.00', balance: '-500.00', credit_held: '500.00' });
+    const back = await refund({ id: o.id }, { amount: '500', reason: 'Only one piece available' });
+    expect(back.body.order).toMatchObject({ credit_held: '0.00', received: '500.00', balance: '0.00', payment_state: 'Paid' });
+  });
+
+  it('refuses more than the surplus, and refuses when nothing is overpaid', async () => {
+    const o = await overpaid();
+    const tooMuch = await refund(o, { amount: '50.04' });
+    expect(tooMuch.status).toBe(400);
+    expect(tooMuch.body.error).toBe('You can refund at most ₹50.03: what the customer has paid beyond this order.');
+
+    const unpaid = (await newOrder()).body.order;
+    expect((await refund(unpaid)).body.error).toBe('There is no overpaid amount to refund on this order.');
+
+    await api().post(`/api/orders/${unpaid.id}/payments`).send({ amount: '2949.97', txn_date: today(), payment_method: method });
+    const full = await refund(unpaid); // paid in full: a refund would be a cancellation, which is not allowed
+    expect(full.body.error).toBe('There is no overpaid amount to refund on this order.');
+  });
+
+  it('needs a reason, a valid method and a real date', async () => {
+    const o = await overpaid();
+    expect((await refund(o, { reason: '  ' })).body.error).toMatch(/reason/i);
+    expect((await refund(o, { payment_method: 'Barter' })).body.error).toBe('Please choose a valid payment method.');
+    expect((await refund(o, { txn_date: '2999-01-01' })).body.error).toBe('The refund date cannot be in the future.');
+    expect((await refund(o, { amount: '0' })).status).toBe(400);
+  });
+
+  it('lists orders holding credit, with totals', async () => {
+    const o = await overpaid();
+    const credit = await api().get('/api/orders').query({ credit: 'true' });
+    expect(credit.body.orders.map((x) => x.id)).toContain(o.id);
+    for (const x of credit.body.orders) expect(Number(x.credit_held)).toBeGreaterThan(0);
+    expect(Number(credit.body.totals.credit_held)).toBeGreaterThanOrEqual(50.03);
+    expect(credit.body.totals.credit_orders).toBeGreaterThan(0);
+  });
+
+  it('leaves figures for orders with no refunds exactly as before', async () => {
+    const odd = await sql('SELECT 1 FROM order_summary WHERE refunded = 0 AND received <> paid_in');
+    expect(odd.rowCount).toBe(0);
+    const rows = await sql("SELECT received, paid_in FROM order_summary WHERE order_code IN ('SO_0000001','SO_0000002','SO_0000003','SO_0000004')");
+    for (const r of rows.rows) expect(r.received).toBe(r.paid_in);
+  });
+});
+
+describe('payment rules in the database', () => {
+  let n = 0;
+  const attempt = async (columns, values) => {
+    await t.client.query('SAVEPOINT rule');
+    try {
+      n += 1;
+      await t.client.query(
+        `INSERT INTO payment_transaction (transaction_code, txn_date, amount, payment_status, ${columns.join(', ')}) VALUES ($1, CURRENT_DATE, 10, 'Completed', ${columns.map((_, i) => `$${i + 2}`).join(', ')})`,
+        [`TRAN_RULE_${n}`, ...values],
+      );
+      return 'allowed';
+    } catch (err) {
+      return err.code;
+    } finally {
+      await t.client.query('ROLLBACK TO SAVEPOINT rule');
+    }
+  };
+  it('allows customer payments and reasoned refunds on orders, and keeps purchase payments Out only', async () => {
+    const order = (await sql("SELECT order_id FROM customer_order LIMIT 1")).rows[0].order_id;
+    const po = (await sql('SELECT purchase_order_id FROM purchase_order LIMIT 1')).rows[0].purchase_order_id;
+    expect(await attempt(['direction', 'order_id'], ['In', order])).toBe('allowed');
+    expect(await attempt(['direction', 'order_id', 'note'], ['Out', order, 'Reduced order'])).toBe('allowed'); // a refund with a reason
+    expect(await attempt(['direction', 'order_id'], ['Out', order])).toBe('23514'); // a refund without a reason
+    expect(await attempt(['direction', 'purchase_order_id'], ['Out', po])).toBe('allowed');
+    expect(await attempt(['direction', 'purchase_order_id'], ['In', po])).toBe('23514'); // we never receive money on a purchase
+    expect(await attempt(['direction', 'order_id', 'purchase_order_id'], ['Out', order, po])).toBe('23514'); // one parent only
+    expect(await attempt(['direction'], ['In'])).toBe('23514'); // a payment must belong to something
+  });
+});
+
 describe('database permissions', () => {
   const tryDelete = async (text) => {
     await t.client.query('SAVEPOINT perm');

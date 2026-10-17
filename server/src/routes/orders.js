@@ -48,6 +48,18 @@ const paymentSchema = z.object({
   confirm_advance: z.boolean().optional(),
 });
 
+// A refund repays money a customer paid BEYOND what the order is worth. It is not a cancellation and never refunds goods.
+const refundSchema = z.object({
+  amount: moneyField('refund amount', { positive: true }),
+  txn_date: dateField('refund date'),
+  payment_method: z.string({ required_error: 'Please choose how it was paid back.' }).trim().min(1, 'Please choose how it was paid back.'),
+  reason: z
+    .string({ required_error: 'Please give a reason for the refund.' })
+    .trim()
+    .min(3, 'Please give a reason for the refund (at least 3 letters).')
+    .max(300, 'The reason is too long (300 characters at most).'),
+});
+
 const idParam = (req) => uuid('That order was not found.').parse(req.params.id);
 
 // ---------- reading ----------
@@ -55,7 +67,8 @@ const BASE_SELECT = `
   SELECT os.order_id AS id, os.order_code AS code, o.customer_id, os.customer AS customer_name, c.phone AS customer_phone,
          to_char(os.order_date, 'YYYY-MM-DD') AS order_date, os.status, o.notes,
          os.ordered_qty, os.shipped_qty, os.items_total, os.shipping_charged, os.order_total,
-         os.received, os.balance, os.payment_state, os.product_cost, os.profit,
+         os.received, os.balance, os.payment_state, os.product_cost, os.profit, os.paid_in, os.refunded,
+         GREATEST(os.received - os.order_total, 0) AS credit_held,
          (os.status IN ('Pending', 'Partially Shipped')) AS editable,
          EXISTS (SELECT 1 FROM order_fulfilment f
                   WHERE f.order_id = os.order_id AND f.remaining > 0 AND f.short_on_this_line > 0
@@ -64,7 +77,9 @@ const BASE_SELECT = `
     JOIN customer_order o ON o.order_id = os.order_id
     LEFT JOIN customer c ON c.customer_id = o.customer_id`;
 
-const MONEY_COLUMNS = ['items_total', 'shipping_charged', 'order_total', 'received', 'balance', 'product_cost', 'profit'];
+const MONEY_COLUMNS = [
+  'items_total', 'shipping_charged', 'order_total', 'received', 'balance', 'product_cost', 'profit', 'paid_in', 'refunded', 'credit_held',
+];
 function present(row) {
   const out = { ...row };
   for (const column of MONEY_COLUMNS) out[column] = formatMoney(row[column]);
@@ -99,7 +114,7 @@ async function fetchOrder(db, id) {
     [id],
   );
   const payments = await db.query(
-    `SELECT transaction_id, transaction_code AS code, to_char(txn_date, 'YYYY-MM-DD') AS txn_date, amount,
+    `SELECT transaction_id, transaction_code AS code, to_char(txn_date, 'YYYY-MM-DD') AS txn_date, amount, direction,
             payment_method, payment_status, note, is_migration_adjustment
        FROM payment_transaction WHERE order_id = $1 ORDER BY txn_date, created_at`,
     [id],
@@ -137,6 +152,7 @@ const listQuery = z.object({
   status: z.enum(['Pending', 'Partially Shipped', 'Shipped', 'Delivered']).optional(),
   payment: z.enum(['Unpaid', 'Partial', 'Paid', 'Advance', 'Overpaid']).optional(),
   waiting: z.enum(['true']).optional(),
+  credit: z.enum(['true']).optional(), // only orders where the customer has paid more than the order is worth
 });
 
 ordersRouter.get('/', async (req, res, next) => {
@@ -151,18 +167,27 @@ ordersRouter.get('/', async (req, res, next) => {
           AND ($3::text IS NULL OR x.status = $3)
           AND ($4::text IS NULL OR x.payment_state = $4)
           AND ($5::boolean IS NULL OR x.waiting_for_stock = $5)
+          AND ($6::boolean IS NULL OR (x.credit_held > 0) = $6)
         ORDER BY x.order_date DESC, x.code DESC`,
-      [q.search ?? null, q.customer ?? null, q.status ?? null, q.payment ?? null, q.waiting ? true : null],
+      [q.search ?? null, q.customer ?? null, q.status ?? null, q.payment ?? null, q.waiting ? true : null, q.credit ? true : null],
     );
     const totals = await db.query(
       `SELECT COALESCE(SUM(balance) FILTER (WHERE balance > 0), 0) AS to_collect,
+              COALESCE(SUM(-balance) FILTER (WHERE balance < 0), 0) AS credit_held,
+              COUNT(*) FILTER (WHERE balance < 0)::int AS credit_orders,
               COUNT(*) FILTER (WHERE status IN ('Pending', 'Partially Shipped'))::int AS open_orders
          FROM order_summary`,
     );
     const waiting = await db.query(`SELECT COUNT(*)::int AS n FROM (${BASE_SELECT}) x WHERE x.waiting_for_stock`);
     res.json({
       orders: rows.map(present),
-      totals: { to_collect: formatMoney(totals.rows[0].to_collect), open_orders: totals.rows[0].open_orders, waiting_for_stock: waiting.rows[0].n },
+      totals: {
+        to_collect: formatMoney(totals.rows[0].to_collect),
+        credit_held: formatMoney(totals.rows[0].credit_held),
+        credit_orders: totals.rows[0].credit_orders,
+        open_orders: totals.rows[0].open_orders,
+        waiting_for_stock: waiting.rows[0].n,
+      },
     });
   } catch (err) {
     next(err);
@@ -354,6 +379,40 @@ ordersRouter.patch('/:id', async (req, res, next) => {
       await db.query('SELECT refresh_order_shipping_status($1)', [orderId]);
     });
     res.json({ order: await fetchOrder(getDb(req), orderId) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---------- refund a customer's overpayment ----------
+ordersRouter.post('/:id/refunds', async (req, res, next) => {
+  try {
+    const orderId = idParam(req);
+    const r = refundSchema.parse(req.body);
+    await inTransaction(req, async (db) => {
+      const locked = await db.query('SELECT 1 FROM customer_order WHERE order_id = $1 FOR UPDATE', [orderId]);
+      if (locked.rowCount === 0) throw new UserError('That order was not found.', 404);
+
+      const method = await db.query('SELECT 1 FROM payment_method_ref WHERE name = $1', [r.payment_method]);
+      if (method.rowCount === 0) throw new UserError('Please choose a valid payment method.', 400);
+
+      // only the surplus can go back: what has been received (net of earlier refunds) beyond what the order is worth
+      const { rows } = await db.query('SELECT received, order_total FROM order_summary WHERE order_id = $1', [orderId]);
+      const surplus = Decimal.max(new Decimal(rows[0].received).minus(rows[0].order_total), 0);
+      if (surplus.lte(0)) throw new UserError('There is no overpaid amount to refund on this order.', 400);
+      if (r.amount.gt(surplus)) {
+        throw new UserError(`You can refund at most ₹${surplus.toFixed(2)}: what the customer has paid beyond this order.`, 400);
+      }
+
+      const code = await nextCode(db, { table: 'payment_transaction', column: 'transaction_code', prefix: 'TRAN_', width: 8 });
+      await db.query(
+        `INSERT INTO payment_transaction
+           (transaction_code, txn_date, direction, amount, payment_method, payment_status, order_id, note)
+         VALUES ($1, $2, 'Out', $3, $4, 'Completed', $5, $6)`,
+        [code, r.txn_date, r.amount.toFixed(2), r.payment_method, orderId, r.reason],
+      );
+    });
+    res.status(201).json({ order: await fetchOrder(getDb(req), orderId) });
   } catch (err) {
     next(err);
   }

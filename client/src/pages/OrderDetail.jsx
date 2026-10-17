@@ -73,6 +73,62 @@ function PaymentDialog({ order, methods, onDone, onClose }) {
   );
 }
 
+// Pop-up: pay back money the customer paid beyond what the order is worth. Not a cancellation: only the surplus can go back.
+function RefundDialog({ order, methods, onDone, onClose }) {
+  const [form, setForm] = useState({ amount: order.credit_held, txn_date: todayInIndia(), payment_method: '', reason: '' });
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+
+  async function submit(e) {
+    e.preventDefault();
+    setError('');
+    setBusy(true);
+    try {
+      const res = await api(`/orders/${order.id}/refunds`, { method: 'POST', body: form });
+      onDone(`Refund of ${formatInrText(form.amount)} recorded.`, res.order);
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal title="Refund the customer" onClose={onClose}>
+      <form onSubmit={submit}>
+        {error && <div className="alert error" role="alert">{error}</div>}
+        <p className="muted">
+          The customer has paid <strong>{formatInrText(order.credit_held)}</strong> more than this order is worth. You can pay back up to that amount.
+          Refunds can't be edited or removed afterwards.
+        </p>
+        <div className="field">
+          <label htmlFor="rf-amount">Amount paid back</label>
+          <div className="money-input"><span>₹</span><input id="rf-amount" type="text" inputMode="decimal" value={form.amount} onChange={set('amount')} autoFocus /></div>
+        </div>
+        <div className="field">
+          <label htmlFor="rf-date">Date paid back</label>
+          <input id="rf-date" type="date" value={form.txn_date} max={todayInIndia()} onChange={set('txn_date')} />
+        </div>
+        <div className="field">
+          <label htmlFor="rf-method">Paid back by</label>
+          <select id="rf-method" value={form.payment_method} onChange={set('payment_method')}>
+            <option value="">Choose...</option>
+            {methods.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="rf-reason">Reason (required)</label>
+          <input id="rf-reason" type="text" maxLength={300} value={form.reason} onChange={set('reason')} placeholder="For example: only one piece was available" />
+        </div>
+        <div className="actions">
+          <button type="button" className="btn secondary" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn" disabled={busy || !form.payment_method || form.reason.trim().length < 3}>{busy ? 'Saving...' : 'Record refund'}</button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 export default function OrderDetail() {
   const { id } = useParams();
   const location = useLocation();
@@ -81,6 +137,7 @@ export default function OrderDetail() {
   const [error, setError] = useState('');
   const [flash, setFlash] = useState(location.state?.flash || '');
   const [paying, setPaying] = useState(false);
+  const [refunding, setRefunding] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -106,6 +163,8 @@ export default function OrderDetail() {
   if (error) return <><p><Link to="/orders">&larr; Back to orders</Link></p><div className="alert error" role="alert">{error}</div></>;
   if (!order) return <div className="loading">Loading...</div>;
 
+  const hasCredit = Number(order.credit_held) > 0;
+  const hasRefunds = Number(order.refunded) > 0;
   const who = order.customer_name ? `${order.customer_name}${order.customer_phone ? ` · ${order.customer_phone}` : ''}` : 'Walk-in customer';
 
   return (
@@ -115,6 +174,7 @@ export default function OrderDetail() {
         <h1>{order.code}</h1>
         <div className="row-actions">
           <button className="btn" onClick={() => setPaying(true)}>Record payment</button>
+          {hasCredit && <button className="btn secondary" onClick={() => setRefunding(true)}>Refund customer</button>}
           {order.editable && <Link className="btn secondary" to={`/orders/${order.id}/edit`}>Edit</Link>}
         </div>
       </div>
@@ -133,11 +193,18 @@ export default function OrderDetail() {
           <div><dt>Products</dt><dd>{formatInrText(order.items_total)}</dd></div>
           <div><dt>Shipping so far</dt><dd>{formatInrText(order.shipping_charged)}</dd></div>
           <div><dt>Order total</dt><dd>{formatInrText(order.order_total)}</dd></div>
-          <div><dt>Received</dt><dd>{formatInrText(order.received)}</dd></div>
+          <div><dt>{hasRefunds ? 'Received (after refunds)' : 'Received'}</dt><dd>{formatInrText(order.received)}</dd></div>
           <div><dt>Balance</dt><dd>{formatInrText(order.balance)}</dd></div>
+          {hasRefunds && <div><dt>Refunded</dt><dd>{formatInrText(order.refunded)}</dd></div>}
           <div><dt>Profit on products</dt><dd className={order.profit.startsWith('-') ? 'bad-text' : ''}>{formatInrText(order.profit)}</dd></div>
         </dl>
-        {order.payment_state === 'Advance' && <p className="muted">Money was received in advance. Shipping charges are added as parcels are sent.</p>}
+        {hasCredit && (
+          <div className="alert warn top-gap-sm">
+            Credit held for the customer: <strong>{formatInrText(order.credit_held)}</strong> (paid more than the order is worth).
+            Shipping charges added later will use it up, or you can pay it back with "Refund customer".
+          </div>
+        )}
+        {order.payment_state === 'Advance' && !hasCredit && <p className="muted">Money was received in advance. Shipping charges are added as parcels are sent.</p>}
         {!order.editable && <p className="muted">This order has shipped, so its products can't be edited. Payments can still be recorded.</p>}
       </div>
 
@@ -206,11 +273,12 @@ export default function OrderDetail() {
           <ul className="history">
             {order.payments.map((p) => (
               <li key={p.transaction_id}>
-                <span className="qty">{formatInrText(p.amount)}</span>
+                <span className={`qty ${p.direction === 'Out' ? 'bad-text' : ''}`}>{p.direction === 'Out' ? '-' : ''}{formatInrText(p.amount)}</span>
                 <span>
-                  <strong>{p.payment_method || 'Method not recorded'}</strong>
+                  <strong>{p.direction === 'Out' ? 'Refund' : (p.payment_method || 'Method not recorded')}</strong>
+                  {p.direction === 'Out' && <> by {p.payment_method || 'method not recorded'}</>}
                   {p.payment_status !== 'Completed' && <> &ndash; {p.payment_status}</>}
-                  <span className="muted block">{p.txn_date} &middot; {p.code}{p.note && <> &middot; {p.note}</>}</span>
+                  <span className="muted block">{p.txn_date} &middot; {p.code}{p.note && <> &middot; {p.direction === 'Out' ? `Reason: ${p.note}` : p.note}</>}</span>
                 </span>
               </li>
             ))}
@@ -218,6 +286,14 @@ export default function OrderDetail() {
         </div>
       )}
 
+      {refunding && (
+        <RefundDialog
+          order={order}
+          methods={methods}
+          onClose={() => setRefunding(false)}
+          onDone={(message, updated) => { setRefunding(false); setFlash(message); setOrder(updated); }}
+        />
+      )}
       {paying && (
         <PaymentDialog
           order={order}

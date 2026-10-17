@@ -22,7 +22,8 @@ AWS RDS later). The database schema and business rules are DONE and tested (`db/
 - Shipping goes through the `ship_items` / `ship_orders` / `ship_order` / `ship_available` database functions (atomic).
   Stock leaves only when goods ship. Shipping is charged per shipment.
 - `inventory_movement` is append-only: correct mistakes with a new, reversing Adjustment (reason and user required).
-- NO cancellations, returns or refunds. Do not build them.
+- NO cancellations or returns. Do not build them. Refunds exist ONLY to repay a customer's overpayment (money out with a
+  reason, never more than the surplus; see README). A refund never cancels an order or refunds goods.
 - Keep business codes (SKU, SO_, PO_, TRAN_, CS_, CUST, SPLR) as unique text; never renumber existing ones.
 - Use parameterised SQL only. No string-built queries.
 - Keep login/authentication behind one small module (we may move to Amazon Cognito on AWS later).
