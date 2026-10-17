@@ -1,16 +1,24 @@
 import { afterAll, describe, expect, it } from 'vitest';
+import express from 'express';
 import request from 'supertest';
 import '../src/config.js';
 import { createApp } from '../src/app.js';
-import { requireLogin } from '../src/auth/index.js';
+import { requireLogin, sessionMiddleware } from '../src/auth/index.js';
 import { hashPassword, checkPassword } from '../src/auth/passwords.js';
 import { closePool } from '../src/db.js';
+import { describeError } from '../src/errors.js';
 
-const app = createApp({
-  isProduction: false,
-  sessionSecret: 'test-secret-test-secret-test-secret-123',
+const config = { isProduction: false, sessionSecret: 'test-secret-test-secret-test-secret-123' };
+const app = createApp(config);
+
+// A tiny app with one guarded route, to prove requireLogin blocks anonymous visitors.
+const guarded = express();
+guarded.use(sessionMiddleware(config));
+guarded.get('/protected', requireLogin, (req, res) => res.json({ ok: true }));
+guarded.use((err, req, res, next) => {
+  const { status, message } = describeError(err);
+  res.status(status).json({ error: message });
 });
-app.get('/api/_test/protected', requireLogin, (req, res) => res.json({ ok: true }));
 
 afterAll(closePool);
 
@@ -33,7 +41,7 @@ describe('login', () => {
   });
 
   it('blocks protected routes for anonymous visitors', async () => {
-    const res = await request(app).get('/api/_test/protected');
+    const res = await request(guarded).get('/protected');
     expect(res.status).toBe(401);
     expect(res.body.error).toBe('Please log in to continue.');
   });
