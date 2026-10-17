@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../auth.jsx';
+import Brand from '../components/Brand.jsx';
 
 export default function Login() {
   const { user, checking, login } = useAuth();
@@ -26,11 +27,13 @@ export default function Login() {
 
   return (
     <div className="login-wrap">
+      <div className="login-col">
+      <div className="login-brand">
+        <Brand className="logo-large" />
+      </div>
       <form className="card login-card" onSubmit={submit}>
-        <div className="login-brand">
-          <div className="wordmark">Nadhi's Couture</div>
-          <div className="muted">Please log in to continue</div>
-        </div>
+        <h2>Welcome back</h2>
+        <p className="muted">Please log in to continue.</p>
         {error && <div className="alert error" role="alert">{error}</div>}
         <div className="field">
           <label htmlFor="email">Email</label>
@@ -42,6 +45,7 @@ export default function Login() {
         </div>
         <button className="btn full" type="submit" disabled={busy}>{busy ? 'Logging in...' : 'Log in'}</button>
       </form>
+      </div>
     </div>
   );
 }

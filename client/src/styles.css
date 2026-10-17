@@ -49,18 +49,19 @@ a { color: var(--purple); }
 
 /* ---------- Layout ---------- */
 .topbar {
-  background: var(--purple);
-  color: var(--ivory);
+  background: var(--ivory);
+  color: var(--purple);
   position: sticky;
   top: 0;
   z-index: 10;
+  border-bottom: 3px solid var(--purple);
   box-shadow: var(--shadow);
 }
 .topbar-inner {
   max-width: 1100px;
   margin: 0 auto;
   padding: 0 16px;
-  min-height: 56px;
+  min-height: 64px;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -69,14 +70,19 @@ a { color: var(--purple); }
   font-weight: 600;
   font-size: 1.1rem;
   letter-spacing: 0.02em;
-  color: var(--ivory);
+  color: var(--purple);
   text-decoration: none;
   margin-right: auto;
+  display: flex;
+  align-items: center;
 }
-.brand img { height: 32px; display: block; }
+/* the logo's own background is ivory: "multiply" lets it melt into the page colour */
+.logo { mix-blend-mode: multiply; display: block; }
+.brand .logo { height: 48px; width: auto; }
+.logo-large { height: auto; width: min(260px, 70%); margin: 0 auto 8px; }
 .nav { display: flex; gap: 4px; align-items: center; }
 .nav a, .nav button.linklike {
-  color: var(--ivory);
+  color: var(--purple);
   text-decoration: none;
   padding: 8px 14px;
   border-radius: 999px;
@@ -87,14 +93,14 @@ a { color: var(--purple); }
   cursor: pointer;
   min-height: 40px;
 }
-.nav a:hover, .nav button.linklike:hover { background: rgba(255, 249, 237, 0.14); }
-.nav a.active { background: var(--ivory); color: var(--purple); font-weight: 500; }
-.nav .who { opacity: 0.85; font-size: 0.85rem; padding: 0 8px; }
+.nav a:hover, .nav button.linklike:hover { background: var(--purple-soft); }
+.nav a.active { background: var(--purple); color: var(--ivory); font-weight: 500; }
+.nav .who { color: var(--text-soft); font-size: 0.85rem; padding: 0 8px; }
 .menu-toggle {
   display: none;
   background: none;
-  border: 1px solid rgba(255, 249, 237, 0.5);
-  color: var(--ivory);
+  border: 1px solid var(--purple);
+  color: var(--purple);
   border-radius: 8px;
   min-height: 40px;
   padding: 0 12px;
@@ -176,10 +182,11 @@ input:focus, select:focus, textarea:focus {
 
 /* ---------- Login ---------- */
 .login-wrap { min-height: 100%; display: grid; place-items: center; padding: 24px 16px; }
-.login-card { width: 100%; max-width: 400px; }
-.login-brand { text-align: center; margin-bottom: 20px; }
+.login-col { width: 100%; max-width: 400px; }
+.login-card { width: 100%; }
+.login-brand { text-align: center; margin-bottom: 16px; }
 .login-brand .wordmark { font-size: 1.7rem; font-weight: 600; color: var(--purple); }
-.login-brand img { max-height: 72px; }
+.login-brand .logo-large { background: transparent; }
 
 /* ---------- Home ---------- */
 .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-top: 16px; }
