@@ -170,6 +170,10 @@ export default function VariantForm({ variant, lookups, addValue, addProduct, on
           <label htmlFor="supplier">Default supplier (optional)</label>
           <select id="supplier" value={form.default_supplier_id} onChange={(e) => set('default_supplier_id')(e.target.value)}>
             <option value="">None</option>
+            {/* a supplier hidden since this variant was saved must stay selected, or saving would silently drop it */}
+            {variant?.default_supplier_id && !lookups.suppliers.some((s) => s.id === variant.default_supplier_id) && (
+              <option value={variant.default_supplier_id}>{variant.supplier_name} (hidden)</option>
+            )}
             {lookups.suppliers.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}

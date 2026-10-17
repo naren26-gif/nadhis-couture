@@ -277,6 +277,7 @@ input:disabled, select:disabled { background: var(--ivory-deep); color: var(--te
 .tiles.summary { margin: 0 0 16px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
 .tiles.summary .tile strong { font-size: 1.4rem; }
 .good-text { color: var(--good); }
+.top-gap-sm { margin-top: 10px; }
 .block { display: block; font-size: 0.85rem; }
 .seg { display: flex; margin-bottom: 16px; border: 1px solid var(--purple); border-radius: 10px; overflow: hidden; }
 .seg button { flex: 1; min-height: 44px; border: 0; background: transparent; color: var(--purple); font: inherit; cursor: pointer; }
