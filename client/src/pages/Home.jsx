@@ -1,50 +1,114 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
+import { formatInr, formatInrText, toPaise } from '../money.js';
+import { defaultCustom, periodOf, periodQuery } from '../periods.js';
+import CompareBars from '../components/CompareBars.jsx';
+import PeriodPicker from '../components/PeriodPicker.jsx';
+import Sparkline from '../components/Sparkline.jsx';
+
+// Series colours: the same validated blue and orange the Reports charts use.
+const BLUE = '#2a78d6';
+const ORANGE = '#eb6834';
+
+const signed = (text) => (Number(text) > 0 ? `+${formatInrText(text)}` : formatInrText(text));
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 export default function Home() {
   const { user } = useAuth();
+  const [preset, setPreset] = useState('last_6');
+  const [custom, setCustom] = useState(defaultCustom);
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const period = useMemo(() => periodOf(preset, custom), [preset, custom]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const q = periodQuery(period);
+    setLoading(true);
+    Promise.all([api(`/reports/overview?${q}`), api(`/reports/monthly?${q}`)])
+      .then(([overview, monthly]) => {
+        if (cancelled) return;
+        setData({ overview, monthly });
+        setError('');
+      })
+      .catch((err) => !cancelled && setError(err.message))
+      .finally(() => !cancelled && setLoading(false));
+    return () => { cancelled = true; };
+  }, [period]);
+
+  const o = data?.overview;
+  const months = data?.monthly.months ?? [];
+  const owedPaise = o ? (toPaise(o.owed.to_suppliers) ?? 0) + (toPaise(o.owed.to_couriers) ?? 0) : 0;
+  const collectPaise = o ? toPaise(o.owed.to_collect) ?? 0 : 0;
+
   return (
     <>
-      <h1>Welcome, {user.name}</h1>
-      <p className="muted">Your shop, in one place.</p>
-      <div className="tiles">
-        <Link className="tile" to="/products">
-          <strong>Products</strong>
-          <span className="muted">Add and edit products, sizes, colours and prices</span>
-        </Link>
-        <Link className="tile" to="/inventory">
-          <strong>Inventory</strong>
-          <span className="muted">See stock on hand and correct it with a reason</span>
-        </Link>
-        <Link className="tile" to="/orders">
-          <strong>Orders</strong>
-          <span className="muted">Take customer orders and record payments</span>
-        </Link>
-        <Link className="tile" to="/shipping">
-          <strong>Shipping</strong>
-          <span className="muted">Send parcels, track delivery, and see what to buy</span>
-        </Link>
-        <Link className="tile" to="/shipping?tab=courier">
-          <strong>Courier month-end</strong>
-          <span className="muted">Pay the courier once a month and check it matches</span>
-        </Link>
-        <Link className="tile" to="/purchases">
-          <strong>Purchases</strong>
-          <span className="muted">Buy stock, receive it, and pay your suppliers</span>
-        </Link>
-        <Link className="tile" to="/suppliers">
-          <strong>Suppliers</strong>
-          <span className="muted">Who you buy from, with phone numbers</span>
-        </Link>
-        <Link className="tile" to="/customers">
-          <strong>Customers</strong>
-          <span className="muted">Who you sell to, with phone numbers</span>
-        </Link>
-        <Link className="tile" to="/reports">
-          <strong>Reports</strong>
-          <span className="muted">Sales, profit, money in and out, stock value, and what you owe</span>
-        </Link>
-      </div>
+      <div className="page-head"><h1>Hello, {user.name}</h1></div>
+
+      <PeriodPicker preset={preset} setPreset={setPreset} custom={custom} setCustom={setCustom} period={period} />
+
+      {/* Space kept for the "Ask about your shop" assistant (planned, not built yet). */}
+
+      {error && <div className="alert error" role="alert">{error}</div>}
+      {!data && !error && <div className="loading">Loading...</div>}
+
+      {data && (
+        <div className={`dash ${loading ? 'refetching' : ''}`}>
+          <section className="card dash-card">
+            <h2>Sales and profit</h2>
+            <div className="dash-pair">
+              <div>
+                <span className="tile-label">Sales</span>
+                <strong className="dash-big">{formatInrText(o.sales.sales)}</strong>
+                <span className="muted tile-note">{plural(o.sales.orders, 'order', 'orders')}, {plural(o.sales.pieces, 'piece', 'pieces')}</span>
+              </div>
+              <div>
+                <span className="tile-label">Profit</span>
+                <strong className={`dash-big ${o.sales.profit.startsWith('-') ? 'bad-text' : ''}`}>{formatInrText(o.sales.profit)}</strong>
+                <span className="muted tile-note">{o.sales.margin_percent === null ? 'no sales yet' : `${o.sales.margin_percent}% of sales`}</span>
+              </div>
+            </div>
+            {o.sales.margin_percent !== null && (
+              <div className="meter" role="img" aria-label={`Profit is ${o.sales.margin_percent}% of sales`}>
+                <span className="meter-fill" style={{ width: `${Math.min(100, Math.max(0, Number(o.sales.margin_percent)))}%`, background: ORANGE }} />
+              </div>
+            )}
+            <Sparkline months={months.map((m) => m.month)} values={months.map((m) => m.sales)} color={BLUE} label="Sales" />
+          </section>
+
+          <section className="card dash-card">
+            <h2>Money in and out</h2>
+            <CompareBars rows={[
+              { label: 'Money in', note: 'from customers', value: o.money.in, color: BLUE },
+              { label: 'Money out', note: 'suppliers, couriers, refunds', value: o.money.out, color: ORANGE },
+            ]} />
+            <p className="dash-net">
+              Net cash <strong className={o.money.net.startsWith('-') ? 'bad-text' : 'good-text'}>{signed(o.money.net)}</strong>
+            </p>
+          </section>
+
+          <section className="card dash-card">
+            <h2>Right now</h2>
+            <Link to="/inventory" className="dash-stock card-link">
+              <span className="tile-label">Stock value</span>
+              <strong className="dash-big">{formatInrText(o.stock.value)}</strong>
+              <span className="muted tile-note">{plural(o.stock.pieces, 'piece', 'pieces')}, at cost</span>
+            </Link>
+            <CompareBars rows={[
+              { label: 'You owe suppliers', note: plural(o.owed.supplier_purchases, 'unpaid purchase', 'unpaid purchases'), value: o.owed.to_suppliers, color: ORANGE, to: '/purchases' },
+              { label: 'You owe couriers', note: 'not yet settled', value: o.owed.to_couriers, color: ORANGE, to: '/shipping?tab=courier' },
+              { label: 'To collect from customers', note: plural(o.owed.orders_to_collect, 'order', 'orders'), value: o.owed.to_collect, color: BLUE, to: '/orders' },
+            ]} />
+            <p className="muted tile-note">You owe {formatInr(owedPaise)}; customers owe you {formatInr(collectPaise)}.</p>
+          </section>
+
+          <p className="muted"><Link to="/reports">See full reports</Link></p>
+        </div>
+      )}
     </>
   );
 }

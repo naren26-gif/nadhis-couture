@@ -24,7 +24,7 @@ export default function Layout() {
             Menu
           </button>
           <nav id="main-nav" className={`nav${open ? ' open' : ''}`}>
-            <NavLink to="/" end onClick={close}>Home</NavLink>
+            <NavLink to="/" end onClick={close}>Dashboard</NavLink>
             <NavLink to="/products" onClick={close}>Products</NavLink>
             <NavLink to="/inventory" onClick={close}>Inventory</NavLink>
             <NavLink to="/orders" onClick={close}>Orders</NavLink>

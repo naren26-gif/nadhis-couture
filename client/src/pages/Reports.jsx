@@ -2,55 +2,17 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { formatInrText } from '../money.js';
+import { defaultCustom, periodOf, periodQuery } from '../periods.js';
 import MonthlyBarChart, { monthLong } from '../components/MonthlyBarChart.jsx';
+import PeriodPicker from '../components/PeriodPicker.jsx';
 
 // Series colours: validated categorical slots 1 and 2 (blue, orange) on the white card surface.
 const BLUE = '#2a78d6';
 const ORANGE = '#eb6834';
 
-const todayMonth = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }).slice(0, 7);
-const addMonths = (ym, n) => {
-  const index = Number(ym.slice(0, 4)) * 12 + (Number(ym.slice(5, 7)) - 1) + n;
-  return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, '0')}`;
-};
-const PRESETS = [
-  ['this_month', 'This month'],
-  ['last_month', 'Last month'],
-  ['last_3', 'Last 3 months'],
-  ['last_6', 'Last 6 months'],
-  ['this_year', 'This year so far'],
-  ['all', 'All time'],
-  ['custom', 'Choose months...'],
-];
-function periodOf(preset, custom) {
-  const now = todayMonth();
-  switch (preset) {
-    case 'this_month': return { from: now, to: now };
-    case 'last_month': return { from: addMonths(now, -1), to: addMonths(now, -1) };
-    case 'last_3': return { from: addMonths(now, -2), to: now };
-    case 'last_6': return { from: addMonths(now, -5), to: now };
-    case 'this_year': return { from: `${now.slice(0, 4)}-01`, to: now };
-    case 'custom': return { from: custom.from, to: custom.to };
-    default: return { from: '', to: '' };
-  }
-}
-
-const signed = (text) => (Number(text) > 0 ? `+${formatInrText(text)}` : formatInrText(text));
-
-function Tile({ label, value, note, tone, to }) {
-  const body = (
-    <>
-      <span className="tile-label">{label}</span>
-      <strong className={tone === 'bad' ? 'bad-text' : tone === 'good' ? 'good-text' : ''}>{value}</strong>
-      {note && <span className="muted tile-note">{note}</span>}
-    </>
-  );
-  return to ? <Link to={to} className="stat-tile card-link">{body}</Link> : <div className="stat-tile">{body}</div>;
-}
-
 export default function Reports() {
   const [preset, setPreset] = useState('last_6');
-  const [custom, setCustom] = useState({ from: addMonths(todayMonth(), -5), to: todayMonth() });
+  const [custom, setCustom] = useState(defaultCustom);
   const [productGroup, setProductGroup] = useState('product');
   const [stockGroup, setStockGroup] = useState('product');
   const [showMatrix, setShowMatrix] = useState(false);
@@ -62,9 +24,7 @@ export default function Reports() {
 
   useEffect(() => {
     let cancelled = false;
-    const q = new URLSearchParams();
-    if (period.from) q.set('from', period.from);
-    if (period.to) q.set('to', period.to);
+    const q = periodQuery(period);
     const withGroup = (group) => { const p = new URLSearchParams(q); p.set('group', group); return p; };
     setLoading(true);
     Promise.all([
@@ -88,56 +48,18 @@ export default function Reports() {
   const o = data?.overview;
   const months = data?.monthly.months ?? [];
   const showExpenses = months.some((m) => Number(m.expenses) > 0);
-  const periodText = !period.from && !period.to ? 'all time' : `${period.from ? monthLong(period.from) : 'the start'} to ${period.to ? monthLong(period.to) : 'now'}`;
 
   return (
     <>
       <div className="page-head"><h1>Reports</h1></div>
 
-      <div className="card period-bar">
-        <div className="field">
-          <label htmlFor="period">Period</label>
-          <select id="period" value={preset} onChange={(e) => setPreset(e.target.value)}>
-            {PRESETS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-          </select>
-        </div>
-        {preset === 'custom' && (
-          <>
-            <div className="field">
-              <label htmlFor="from">From month</label>
-              <input id="from" type="month" value={custom.from} max={todayMonth()} onChange={(e) => setCustom((c) => ({ ...c, from: e.target.value }))} />
-            </div>
-            <div className="field">
-              <label htmlFor="to">To month</label>
-              <input id="to" type="month" value={custom.to} max={todayMonth()} onChange={(e) => setCustom((c) => ({ ...c, to: e.target.value }))} />
-            </div>
-          </>
-        )}
-        <p className="muted period-note">Showing {periodText}. Stock and money owed are always as of today.</p>
-      </div>
+      <PeriodPicker preset={preset} setPreset={setPreset} custom={custom} setCustom={setCustom} period={period} />
 
       {error && <div className="alert error" role="alert">{error}</div>}
       {!data && !error && <div className="loading">Loading...</div>}
 
       {data && (
         <div className={loading ? 'refetching' : ''}>
-          <h2 className="tab-h">In this period</h2>
-          <div className="stat-grid">
-            <Tile label="Sales" value={formatInrText(o.sales.sales)} note={`${o.sales.orders} ${o.sales.orders === 1 ? 'order' : 'orders'}, ${o.sales.pieces} pieces`} />
-            <Tile label="Profit" value={formatInrText(o.sales.profit)} tone={o.sales.profit.startsWith('-') ? 'bad' : undefined} note={o.sales.margin_percent === null ? 'no sales yet' : `${o.sales.margin_percent}% of sales`} />
-            <Tile label="Money in" value={formatInrText(o.money.in)} note="from customers" />
-            <Tile label="Money out" value={formatInrText(o.money.out)} note="suppliers, couriers, refunds" />
-            <Tile label="Net cash" value={signed(o.money.net)} tone={o.money.net.startsWith('-') ? 'bad' : 'good'} note="money in minus money out" />
-          </div>
-
-          <h2 className="tab-h">Right now</h2>
-          <div className="stat-grid">
-            <Tile label="Stock value" value={formatInrText(o.stock.value)} note={`${o.stock.pieces} pieces, at cost`} to="/inventory" />
-            <Tile label="You owe suppliers" value={formatInrText(o.owed.to_suppliers)} note={`${o.owed.supplier_purchases} unpaid ${o.owed.supplier_purchases === 1 ? 'purchase' : 'purchases'}`} to="/purchases" />
-            <Tile label="You owe couriers" value={formatInrText(o.owed.to_couriers)} note="not yet settled" to="/shipping?tab=courier" />
-            <Tile label="To collect from customers" value={formatInrText(o.owed.to_collect)} note={`${o.owed.orders_to_collect} ${o.owed.orders_to_collect === 1 ? 'order' : 'orders'}${Number(o.owed.credit_held) > 0 ? `; credit held ${formatInrText(o.owed.credit_held)}` : ''}`} to="/orders" />
-          </div>
-
           {data.monthly.truncated && <div className="alert warn">That period is very long, so only the latest 60 months are shown in the month tables and charts.</div>}
 
           <section className="card report-card">
