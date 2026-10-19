@@ -393,3 +393,5 @@ tr.total-row td { font-weight: 600; border-top: 2px solid var(--border); backgro
 .bar-fill { display: block; height: 100%; border-radius: 5px; min-width: 2px; }
 a.bar-row:hover .bar-value { color: var(--purple); }
 .dash-net { margin: 0; }
+.dash-ship { margin-bottom: 12px; }
+a.dash-ship { border-color: var(--warn); }

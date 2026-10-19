@@ -23,6 +23,8 @@ export default function Home() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
+  const [toShip, setToShip] = useState(null); // orders still waiting to be shipped (null until loaded)
+
   const period = useMemo(() => periodOf(preset, custom), [preset, custom]);
 
   useEffect(() => {
@@ -40,6 +42,11 @@ export default function Home() {
     return () => { cancelled = true; };
   }, [period]);
 
+  // as of today, so it does not depend on the period; a failure here must not break the rest of the page
+  useEffect(() => {
+    api('/shipments/ready').then((d) => setToShip(d.orders.length)).catch(() => setToShip(null));
+  }, []);
+
   const o = data?.overview;
   const months = data?.monthly.months ?? [];
   const owedPaise = o ? (toPaise(o.owed.to_suppliers) ?? 0) + (toPaise(o.owed.to_couriers) ?? 0) : 0;
@@ -52,6 +59,20 @@ export default function Home() {
       <PeriodPicker preset={preset} setPreset={setPreset} custom={custom} setCustom={setCustom} period={period} />
 
       {/* Space kept for the "Ask about your shop" assistant (planned, not built yet). */}
+
+      {toShip !== null && (toShip > 0 ? (
+        <Link to="/shipping" className="stat-tile card-link dash-ship">
+          <span className="tile-label">Pending shipments</span>
+          <strong>{toShip}</strong>
+          <span className="muted tile-note">{toShip === 1 ? 'order is' : 'orders are'} waiting to be shipped. Open Shipping</span>
+        </Link>
+      ) : (
+        <div className="stat-tile dash-ship">
+          <span className="tile-label">Pending shipments</span>
+          <strong>0</strong>
+          <span className="muted tile-note">Nothing waiting to ship</span>
+        </div>
+      ))}
 
       {error && <div className="alert error" role="alert">{error}</div>}
       {!data && !error && <div className="loading">Loading...</div>}
