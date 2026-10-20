@@ -1,0 +1,6 @@
+# The address comes from APP_DOMAIN: a real name such as app.example.com gets a free HTTPS certificate automatically
+# (and plain http is redirected to https). For a local try-out use APP_DOMAIN=http://localhost (no certificate).
+{$APP_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:3000
+}
