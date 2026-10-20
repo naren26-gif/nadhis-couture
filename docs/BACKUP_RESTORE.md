@@ -17,9 +17,10 @@ step (cutover, a migration) and then weekly. Off-site copies (S3) come with the 
 1. Create a new Supabase project (free tier is fine for a practice), copy its Session pooler string.
 2. ```powershell
    $env:SCRATCH_DB_URL = '<scratch project admin string>'
-   pg_restore --no-owner --no-privileges --exit-on-error -d $env:SCRATCH_DB_URL "$HOME\nadhi-backups\prod_<date>.dump"
+   pg_restore --no-owner --no-privileges -d $env:SCRATCH_DB_URL "$HOME\nadhi-backups\prod_<date>.dump"
    psql $env:SCRATCH_DB_URL -f db/verify_production.sql
    ```
+   One message, `schema "public" already exists`, is normal and harmless (every Supabase project has that schema). Any other error is real.
 3. Compare the counts with the expected numbers at the top of `db/verify_production.sql`. The lock checks (RLS, API roles)
    will differ on a scratch copy; run `db/supabase_hardening.sql` if the copy is going to be used for real.
 4. Delete the scratch project when the practice is done.
