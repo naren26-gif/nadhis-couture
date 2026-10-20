@@ -52,11 +52,11 @@ COST_SNAPSHOT = "variant_master"
 SHIPPED_ON_DATE = date(2026, 10, 16)
 # Confirmed by owner: shipping is charged to the customer PER SHIPMENT; no courier payment has been made yet;
 # there are no cancellations, returns or refunds.
-# Confirmed by owner: ST Courier is the courier for all shipments.
+# Confirmed by owner: one courier carries all shipments.
 COURIER_SUPPLIER_CODE = "SPLR0004"
 # Confirmed by owner: these orders went out as ONE parcel (same customer). All other orders are one parcel each.
 PARCEL_GROUPS = [["SO_0000003", "SO_0000004"]]
-# Confirmed by owner: no payment has been made to ST Courier yet, so existing shipments are unpaid to the courier.
+# Confirmed by owner: no payment has been made to the courier yet, so existing shipments are unpaid to the courier.
 
 # Approved (owner): PO_0000005 was 580 + 550 - it covered BOTH UMRC-2XL-BL (550) and FDM-L-BLK (580); the sheet omitted the 550.
 PO_TOTAL_CORRECTIONS = {"PO_0000005": Decimal("1130.00")}
@@ -527,7 +527,7 @@ def run_checks(src, M, variants, checks, po_total, cost_compare):
     check("PASS" if not off_parcels else "REVIEW", "Shipping charged to customer == courier cost, per parcel",
           f"charged {paid_charged:,.2f} vs courier cost {courier_cost:,.2f}" + (f"; differ: {off_parcels}" if off_parcels else ""))
     check("INFO", "Courier payable (confirmed unpaid)",
-          f"{courier_cost:,.2f} owed to ST Courier for {len(M['shipment'])} parcels ({len(M['shipment_item'])} order lines) "
+          f"{courier_cost:,.2f} owed to the courier for {len(M['shipment'])} parcels ({len(M['shipment_item'])} order lines) "
           f"dated {SHIPPED_ON_DATE:%d %b %Y}; owner confirmed nothing has been paid yet.")
     for c in cost_compare:
         if c["sheet"] != c["master"]:

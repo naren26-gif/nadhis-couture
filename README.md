@@ -50,27 +50,19 @@ Secrets live in environment variables or a git-ignored `.env`, never in code. `m
 names and is git-ignored. Turn the Supabase **Data API off** (the app never uses it). The running app connects as
 `app_backend` (never `postgres`); re-run the hardening script after adding any table, view or function.
 
-## Approved decisions
+## Design decisions
 | Topic | Decision |
 |---|---|
-| Duplicate SKUs | Lavendar variants -> `UMRC-M/L/XL-LV`; colour spelled "Lavender". Pink keep `-PK`. |
-| UMV SKUs | `UMV-M-YLW`, `UMV-L-YLW` (colour Pink) -> `UMV-M-PK`, `UMV-L-PK`. |
-| SO_0000004 | Quantity 1, unit cost 290 (wholesale), selling price 500. |
-| PO_0000002 | Fully paid 2,660. Added a 1,330 payment `TRAN_MIG_0001` (date/method unknown, flagged). |
 | Meaning of fields | Unit cost = wholesale purchase cost. Est selling price = retail list price. **Profit = selling price - unit cost.** |
-| Cost on orders | ALWAYS taken from the product master Unit cost, never from the order sheet's own UnitCost (which was wrong on all 4 orders). |
-| Shipping | Shipping is charged to the customer **per shipment** (`shipment.shipping_charged`), billed on one order of the parcel (`billed_order_id`, default the earliest order, or chosen) and paid with that order's payments. So an order's amount due grows as its parcels ship; money received before dispatch shows as `Advance`. The courier's charge is `shipment.courier_cost`. We pay the courier one lump sum at month end: `courier_settlement`; a shipment is "paid to courier" once linked to one. Shipping is pass-through, NOT part of profit (`shipment_summary` / `shipping_monthly` show charged vs courier cost). |
-| Ship dates | All 4 existing shipments happened on 16 Oct 2026. |
-| PO_0000002 | Balance 1,330 paid on 16 Oct 2026 via GPay (`TRAN_MIG_0001`). |
-| PO_0000005 payment | `TRAN_00000009` corrected 580 -> 1,130 (GPay); PO_0000005 is fully paid. |
-| Courier / parcels | ST Courier is the courier for all shipments; **nothing has been paid to ST Courier yet** (250 owed across the 3 existing parcels). A shipment is one PARCEL made of shipment LINES (`shipment_item`: order line + quantity). An order can ship in several parcels, and a parcel can carry lines from several orders of the SAME customer. Existing data: SO_0000003 + SO_0000004 went as one parcel (SH_0000003, billed on SO_0000003, courier cost 90). |
+| Cost on orders | Always taken from the product master unit cost when the order line is created (stored as a snapshot), never typed in per order. |
+| Shipping | Shipping is charged to the customer **per shipment** (`shipment.shipping_charged`), billed on one order of the parcel (`billed_order_id`) and paid with that order's payments. An order's amount due grows as its parcels ship; money received before dispatch shows as `Advance`. The courier's charge is `shipment.courier_cost`. The courier is paid one lump sum at month end (`courier_settlement`); a shipment is "paid to courier" once linked to one. Shipping is pass-through, NOT part of profit (`shipment_summary` / `shipping_monthly` show charged vs courier cost). |
+| Parcels | A shipment is one PARCEL made of shipment LINES (`shipment_item`: order line + quantity). An order can ship in several parcels, and a parcel can carry lines from several orders of the SAME customer. |
 | Order statuses | Pending, Partially Shipped, Shipped, Delivered. Pending/Partially Shipped/Shipped follow what has shipped; Delivered once fully shipped AND every parcel delivered. |
-| PO_0000005 | Total corrected 580 -> **1,130**: it covered both UMRC-2XL-BL (550) and FDM-L-BLK (580). The sheet omitted the 550. |
-| Purchase lines | PO_0000005 items stated by owner (2). The other 53 variants are linked to PO_0000001 BY ELIMINATION (only two stock POs exist and the 53 at master cost total exactly 20,550). Stock enters as 'Purchase Receipt' movements linked to the PO line, dated the PO date. The migration fails the load if these totals ever stop tying. |
-| Non-stock purchases | Only "Wholesale Garments" affects inventory; labels, stickers, courier covers, sewing machine do not. |
-| No cancel / returns | **Out of scope by decision**: orders cannot be cancelled or returned. Enforced in the schema: no Cancelled/Returned statuses, no Return stock movements. Corrections to a wrong order are made by editing it BEFORE it ships (unshipped lines can be removed; a shipped line is locked). |
-| Refunds (narrow exception, migration 004, decided 18 Oct 2026) | The ONLY refund is repaying a customer's **overpayment** (they paid more than the order is worth, e.g. the order was reduced after payment). It is an `Out` payment on the order (`payment_transaction`, direction Out, reason required in `note`), capped at the surplus, so it can never cancel an order or refund goods. `order_summary.received` is net of refunds (`paid_in` and `refunded` are shown separately). Purchase payments still only go Out. Refunds cannot be edited or deleted. Reports must count refunds as money out. |
-| Split shipments | If only part of an order is in stock, ship the available lines now and the rest after buying stock. Stock leaves per SHIPPED LINE (not at order time). Each function takes the shipping charge for that parcel. `ship_available()` ships whatever is in stock; `ship_items()` ships chosen lines/quantities; `ship_order()`/`ship_orders()` ship everything remaining. All are atomic (any failure rolls back everything). Views `order_fulfilment` and `purchase_needed` show what is waiting and what to buy. |
+| Stock-affecting purchases | Only purchases of stock (garments) affect inventory; labels, stickers, courier covers and equipment do not. Stock enters as 'Purchase Receipt' movements linked to the PO line. |
+| No cancel / returns | **Out of scope by decision**: orders cannot be cancelled or returned. Enforced in the schema: no Cancelled/Returned statuses, no Return stock movements. A wrong order is corrected by editing it BEFORE it ships (unshipped lines can be removed; a shipped line is locked). |
+| Refunds (narrow exception, migration 004) | The ONLY refund is repaying a customer's **overpayment**. It is an `Out` payment on the order (`payment_transaction`, direction Out, reason required in `note`), capped at the surplus, so it can never cancel an order or refund goods. `order_summary.received` is net of refunds (`paid_in` and `refunded` are shown separately). Purchase payments still only go Out. Refunds cannot be edited or deleted. Reports count refunds as money out. |
+| Split shipments | If only part of an order is in stock, ship the available lines now and the rest later. Stock leaves per SHIPPED LINE (not at order time). Each function takes the shipping charge for that parcel. `ship_available()` ships whatever is in stock; `ship_items()` ships chosen lines/quantities; `ship_order()`/`ship_orders()` ship everything remaining. All are atomic (any failure rolls back everything). Views `order_fulfilment` and `purchase_needed` show what is waiting and what to buy. |
+| Data migration | The original Excel records were loaded by `migration/migrate.py`, with reconciliation checks that roll the load back if stock, purchase totals or payments stop tying. The source workbook and reports contain business data and are never committed. |
 | Database | PostgreSQL. Hosting: Supabase Pro now, AWS RDS later. 2-3 users. |
 
 ## Design rules to keep
@@ -94,4 +86,4 @@ names and is git-ignored. Turn the Supabase **Data API off** (the app never uses
 3. Phase 3: when a parcel ships, the app should ask for that parcel's shipping charge and courier cost (defaults 0), and, for a combined parcel, which order carries the charge.
 4. Phase 3: since orders cannot be cancelled, decide how to handle an order entered by mistake before anything has shipped or been paid (e.g. allow deleting such an order).
 
-(Resolved: the 550 stock-vs-purchase gap; PO_0000005 payment; payment methods; courier identity and unpaid status; SO_0000003/4 parcel; split shipments; per-shipment shipping charge; no cancel/returns; refunds only for overpayments.)
+(Resolved: stock-vs-purchase reconciliation, payment methods, courier handling, combined parcels, split shipments, per-shipment shipping charge, no cancel/returns, refunds only for overpayments.)
