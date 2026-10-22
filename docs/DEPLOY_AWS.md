@@ -26,6 +26,15 @@ docker compose down                    # stop when done
 ## 2. Buy a domain and decide the address
 Buy any domain (Route 53 > Registered domains, or any registrar). The app will live at `app.<your-domain>`.
 
+### No domain yet? Use a free name that points at your IP
+Do NOT run the app over plain `http://<ip>`: the login cookie is HTTPS-only in production (so login would fail) and your
+password would travel unencrypted. Instead use a free hostname that resolves to your Elastic IP, and Caddy gets a real
+certificate for it. Write the IP with dashes: for IP `13.233.10.20` the address is `13-233-10-20.sslip.io`.
+Set `APP_DOMAIN=13-233-10-20.sslip.io` in `/etc/nadhi/env` and skip step 4 (no DNS record needed). If the certificate is
+refused (that free service is shared and can hit limits), use a free DuckDNS name instead (duckdns.org, pick a name, point
+it at the IP, use `yourname.duckdns.org` as `APP_DOMAIN`). When you buy a domain later, change `APP_DOMAIN`, add the A
+record, and run `./deploy/deploy.sh` again.
+
 ## 3. Launch the server (EC2 > Launch instance)
 | Setting | Value |
 |---|---|
