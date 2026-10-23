@@ -13,7 +13,7 @@ Keep login behind one small backend module so it can switch to Amazon Cognito la
       purchases, orders with customer refunds of overpayments, shipping, courier month-end, reports).
 - [x] Phase 4: reports/dashboard (`/reports`: read-only; sales counted by ORDER date; profit excludes shipping; money in/out by
       payment date; stock, amounts owed and amounts to collect are "as of now")
-- [ ] Phase 5: tests, backups, cutover (production schema and data are ready; backups done and restore proven 2026-10-20; phone test passed 2026-10-20; remaining: Supabase PITR decision, deploy, create production login, cutover)
+- [ ] Phase 5: tests, backups, cutover (production schema and data are ready; backups done and restore proven 2026-10-20; phone test passed 2026-10-20; deployed on AWS EC2 (Sydney) in Docker behind Caddy HTTPS, production login created 2026-10-23; remaining: smoke test on phone, Supabase PITR decision, cutover)
 
 ## Layout
     db/schema.sql                 tables, constraints, triggers, ship_order(), derived views (incl. shipments & courier settlements)
