@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api.js';
-import { PARTY_KINDS } from '../partyKinds.js';
+import { INDIAN_STATES, PARTY_KINDS } from '../partyKinds.js';
 
-const EMPTY = { name: '', contact_person: '', phone: '', email: '', location: '' };
+const EMPTY = {
+  name: '', contact_person: '', phone: '', email: '', location: '',
+  address_line1: '', address_line2: '', city: '', state: '', pincode: '',
+};
 
 // "Add" (/suppliers/new) and "Edit" (/suppliers/:id/edit) for both suppliers and customers.
 export default function PartyFormPage({ kind }) {
@@ -29,6 +32,11 @@ export default function PartyFormPage({ kind }) {
           phone: item.phone || '',
           email: item.email || '',
           location: item.location || '',
+          address_line1: item.address_line1 || '',
+          address_line2: item.address_line2 || '',
+          city: item.city || '',
+          state: item.state || '',
+          pincode: item.pincode || '',
         });
       })
       .catch((err) => setError(err.message))
@@ -44,6 +52,9 @@ export default function PartyFormPage({ kind }) {
     try {
       const body = { name: form.name, phone: form.phone, email: form.email, location: form.location };
       if (k.hasContactPerson) body.contact_person = form.contact_person;
+      if (k.hasAddress) {
+        for (const f of ['address_line1', 'address_line2', 'city', 'state', 'pincode']) body[f] = form[f];
+      }
       const { item } = await api(editing ? `${k.path}/${id}` : k.path, { method: editing ? 'PATCH' : 'POST', body });
       navigate(k.path, { state: { flash: `Saved ${item.name} (${item.code}).` } });
     } catch (err) {
@@ -74,9 +85,12 @@ export default function PartyFormPage({ kind }) {
               </div>
             )}
             <div className="field">
-              <label htmlFor="phone">Phone (optional)</label>
-              <input id="phone" type="tel" inputMode="tel" value={form.phone} onChange={set('phone')} maxLength={20} />
-              <div className="hint">Digits, spaces, + ( ) -. For example +91 98765 43210</div>
+              <label htmlFor="phone">{k.hasAddress ? 'Phone' : 'Phone (optional)'}</label>
+              <input id="phone" type="tel" inputMode="tel" value={form.phone} onChange={set('phone')} maxLength={20} required={k.hasAddress} />
+              <div className="hint">
+                Digits, spaces, + ( ) -. For example +91 98765 43210
+                {k.hasAddress && '. Each customer needs their own number.'}
+              </div>
             </div>
             <div className="field">
               <label htmlFor="email">Email (optional)</label>
@@ -87,6 +101,38 @@ export default function PartyFormPage({ kind }) {
               <input id="location" type="text" value={form.location} onChange={set('location')} maxLength={200} />
             </div>
           </div>
+          {k.hasAddress && (
+            <>
+              <h2>Delivery address</h2>
+              <div className="form-grid">
+                <div className="field">
+                  <label htmlFor="address1">Address line 1</label>
+                  <input id="address1" type="text" value={form.address_line1} onChange={set('address_line1')} maxLength={150} required />
+                </div>
+                <div className="field">
+                  <label htmlFor="address2">Address line 2 (optional)</label>
+                  <input id="address2" type="text" value={form.address_line2} onChange={set('address_line2')} maxLength={150} />
+                </div>
+                <div className="field">
+                  <label htmlFor="city">City</label>
+                  <input id="city" type="text" value={form.city} onChange={set('city')} maxLength={80} required />
+                </div>
+                <div className="field">
+                  <label htmlFor="state">State</label>
+                  <select id="state" value={form.state} onChange={set('state')} required>
+                    <option value="">Choose...</option>
+                    {form.state && !INDIAN_STATES.includes(form.state) && <option value={form.state}>{form.state}</option>}
+                    {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="pincode">PIN code</label>
+                  <input id="pincode" type="text" inputMode="numeric" value={form.pincode} onChange={set('pincode')} maxLength={6} required />
+                  <div className="hint">6 digits</div>
+                </div>
+              </div>
+            </>
+          )}
           <div className="actions">
             <button type="button" className="btn secondary" onClick={() => navigate(k.path)}>Cancel</button>
             <button type="submit" className="btn" disabled={busy}>{busy ? 'Saving...' : 'Save'}</button>

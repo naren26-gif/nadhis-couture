@@ -6,6 +6,14 @@ import { getPool } from '../src/db.js';
 import { protectedRouter } from '../src/routes/index.js';
 import { describeError } from '../src/errors.js';
 
+// The delivery address every new customer needs (spread it into a customer's POST body).
+export const ADDRESS = {
+  address_line1: '1 Test Street',
+  city: 'Chennai',
+  state: 'Tamil Nadu',
+  pincode: '600001',
+};
+
 export async function startTestApp() {
   const client = await getPool().connect();
   await client.query('BEGIN');

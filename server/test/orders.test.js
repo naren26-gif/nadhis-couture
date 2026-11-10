@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { closePool, query } from '../src/db.js';
-import { startTestApp } from './helpers.js';
+import { ADDRESS, startTestApp } from './helpers.js';
 
 let t;
 let customerId;
@@ -16,7 +16,7 @@ const sql = (text, params = []) => query(text, params, t.client);
 
 beforeAll(async () => {
   t = await startTestApp();
-  const customer = await api().post('/api/customers').send({ name: 'Zz Order Customer', phone: '+91 90000 88888' });
+  const customer = await api().post('/api/customers').send({ name: 'Zz Order Customer', phone: '+91 90000 88888', ...ADDRESS });
   customerId = customer.body.item.id;
   const product = await api().post('/api/products').send({ name: 'Zz Order Product' });
   const make = async (sku, size, cost, price) => {

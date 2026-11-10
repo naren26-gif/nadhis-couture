@@ -20,7 +20,15 @@ const optional = (schema) =>
 const text = (label, max) =>
   optional(z.string().trim().max(max, `The ${label} is too long (${max} characters at most).`));
 
-export function buildPartyRouter({ noun, table, idColumn, codeColumn, prefix, width, hasContactPerson }) {
+const PHONE_RULE = 'The phone number can only have digits, spaces, + ( ) - and must be 6 to 20 characters.';
+const PINCODE = /^[0-9]{6}$/;
+
+// A text field that must be filled in.
+const required = (message, max, label) =>
+  z.string({ required_error: message }).trim().min(1, message).max(max, `The ${label} is too long (${max} characters at most).`);
+
+// hasAddress: customers must have a phone number and ONE saved delivery address (suppliers keep phone optional).
+export function buildPartyRouter({ noun, table, idColumn, codeColumn, prefix, width, hasContactPerson, hasAddress = false }) {
   const router = Router();
   const idSchema = z.string({ required_error: `Please choose the ${noun}.` }).uuid(`That ${noun} was not found.`);
 
@@ -31,19 +39,40 @@ export function buildPartyRouter({ noun, table, idColumn, codeColumn, prefix, wi
       .min(1, `Please enter the ${noun}'s name.`)
       .max(100, 'The name is too long (100 characters at most).')
       .transform((value) => value.replace(/\s+/g, ' ')),
-    phone: optional(
-      z
-        .string()
-        .trim()
-        .refine((value) => PHONE.test(value), 'The phone number can only have digits, spaces, + ( ) - and must be 6 to 20 characters.'),
-    ),
+    phone: hasAddress
+      ? z
+          .string({ required_error: 'Please enter the phone number.' })
+          .trim()
+          .min(1, 'Please enter the phone number.')
+          .refine((value) => PHONE.test(value), PHONE_RULE)
+      : optional(z.string().trim().refine((value) => PHONE.test(value), PHONE_RULE)),
     email: optional(z.string().trim().max(120, 'The email is too long.').refine((value) => EMAIL.test(value), 'Please enter a valid email address, or leave it empty.')),
     location: text('location', 200),
   };
   if (hasContactPerson) shape.contact_person = text('contact person', 100);
+  if (hasAddress) {
+    shape.address_line1 = required('Please enter the address (line 1).', 150, 'address');
+    shape.address_line2 = text('address (line 2)', 150);
+    shape.city = required('Please enter the city.', 80, 'city');
+    shape.state = required('Please choose the state.', 60, 'state');
+    shape.pincode = z
+      .string({ required_error: 'Please enter the PIN code.' })
+      .trim()
+      .refine((value) => PINCODE.test(value), 'That does not look like a valid PIN code (6 digits).');
+  }
   const bodySchema = z.object(shape);
 
-  const columns = `${idColumn} AS id, ${codeColumn} AS code, name, ${hasContactPerson ? 'contact_person, ' : ''}phone, email, location, is_active`;
+  const fields = [
+    'name', 'phone', 'email', 'location',
+    ...(hasContactPerson ? ['contact_person'] : []),
+    ...(hasAddress ? ['address_line1', 'address_line2', 'city', 'state', 'pincode'] : []),
+  ];
+  const columns = `${idColumn} AS id, ${codeColumn} AS code, name, ${hasContactPerson ? 'contact_person, ' : ''}phone, email, location, ${
+    hasAddress ? 'address_line1, address_line2, city, state, pincode, ' : ''
+  }is_active`;
+  const addressSearch = hasAddress
+    ? `OR strpos(lower(concat_ws(' ', address_line1, address_line2, city, state, pincode)), lower($1)) > 0`
+    : '';
 
   const listQuery = z.object({
     search: z.string().trim().max(80).optional(),
@@ -57,10 +86,14 @@ export function buildPartyRouter({ noun, table, idColumn, codeColumn, prefix, wi
 
   // A phone number can belong to one person only. Check first so we can say who has it (asking after the database
   // has refused would fail inside the aborted transaction). The database's unique index remains the real guard.
+  // Customers compare the LAST 10 DIGITS, so "98765 43210" and "+91 98765-43210" are the same number.
   async function checkPhoneFree(db, phone, exceptId) {
     if (!phone) return;
+    const sameNumber = hasAddress
+      ? `right(regexp_replace(phone, '\\D', '', 'g'), 10) = right(regexp_replace($1, '\\D', '', 'g'), 10)`
+      : 'phone = $1';
     const other = await db.query(
-      `SELECT name, ${codeColumn} AS code FROM ${table} WHERE phone = $1 AND ${idColumn} IS DISTINCT FROM $2`,
+      `SELECT name, ${codeColumn} AS code FROM ${table} WHERE ${sameNumber} AND ${idColumn} IS DISTINCT FROM $2`,
       [phone, exceptId ?? null],
     );
     if (other.rows[0]) {
@@ -74,7 +107,8 @@ export function buildPartyRouter({ noun, table, idColumn, codeColumn, prefix, wi
       const { rows } = await getDb(req).query(
         `SELECT ${columns} FROM ${table}
           WHERE ($1::text IS NULL OR strpos(lower(name), lower($1)) > 0 OR strpos(lower(${codeColumn}), lower($1)) > 0
-                 OR strpos(COALESCE(phone, ''), $1) > 0 OR strpos(lower(COALESCE(location, '')), lower($1)) > 0)
+                 OR strpos(COALESCE(phone, ''), $1) > 0 OR strpos(lower(COALESCE(location, '')), lower($1)) > 0
+                 ${addressSearch})
             AND ($2::boolean OR is_active)
           ORDER BY lower(name), ${codeColumn}`,
         [q.search ?? null, q.inactive === 'true'],
@@ -98,7 +132,6 @@ export function buildPartyRouter({ noun, table, idColumn, codeColumn, prefix, wi
   router.post('/', async (req, res, next) => {
     try {
       const v = bodySchema.parse(req.body);
-      const fields = ['name', 'phone', 'email', 'location', ...(hasContactPerson ? ['contact_person'] : [])];
       const id = await inTransaction(req, async (tx) => {
         await checkPhoneFree(tx, v.phone, null);
         const code = await nextCode(tx, { table, column: codeColumn, prefix, width });
@@ -123,7 +156,6 @@ export function buildPartyRouter({ noun, table, idColumn, codeColumn, prefix, wi
       const id = idSchema.parse(req.params.id);
       const v = bodySchema.parse(req.body);
       await checkPhoneFree(db, v.phone, id);
-      const fields = ['name', 'phone', 'email', 'location', ...(hasContactPerson ? ['contact_person'] : [])];
       const result = await db.query(
         `UPDATE ${table} SET ${fields.map((f, i) => `${f} = $${i + 2}`).join(', ')} WHERE ${idColumn} = $1`,
         [id, ...fields.map((f) => v[f])],

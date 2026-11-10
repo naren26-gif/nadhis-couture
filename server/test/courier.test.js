@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { closePool, query } from '../src/db.js';
-import { startTestApp } from './helpers.js';
+import { ADDRESS, startTestApp } from './helpers.js';
 
 let t;
 let customer;
@@ -19,7 +19,7 @@ const number = (code) => Number(code.replace(/^\D+/, ''));
 
 beforeAll(async () => {
   t = await startTestApp();
-  customer = (await api().post('/api/customers').send({ name: 'Zz Courier Customer', phone: '+91 90000 55551' })).body.item.id;
+  customer = (await api().post('/api/customers').send({ name: 'Zz Courier Customer', phone: '+91 90000 55551', ...ADDRESS })).body.item.id;
   const product = await api().post('/api/products').send({ name: 'Zz Courier Product' });
   variant = (await api().post('/api/variants').send({
     product_id: product.body.id, fabric: 'Cotton', size: 'M', colour: 'Black', unit_cost: '100.00', list_price: '500.00', sku: 'ZZC-M-BLK',

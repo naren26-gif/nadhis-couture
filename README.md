@@ -20,7 +20,8 @@ Keep login behind one small backend module so it can switch to Amazon Cognito la
     db/migrations/                numbered schema changes; apply to dev first, then re-run supabase_hardening.sql
                                   001 app users + login sessions, 002 supplier/customer code counters (no longer used),
                                   003 PO/payment code counters (no longer used) + received <= ordered rule,
-                                  004 customer refunds (overpayments only), 005 gapless shipment codes
+                                  004 customer refunds (overpayments only), 005 gapless shipment codes,
+                                  006 customer delivery address (one per customer) + phone/address required for new customers
     migration/migrate.py          Excel -> PostgreSQL (dry run by default)
     migration/reports/            latest reconciliation report + cleaned CSVs for review
     server/                       Node + Express API (src/auth = the ONLY login module, src/routes, test/)
@@ -63,6 +64,7 @@ names and is git-ignored. Turn the Supabase **Data API off** (the app never uses
 | Refunds (narrow exception, migration 004) | The ONLY refund is repaying a customer's **overpayment**. It is an `Out` payment on the order (`payment_transaction`, direction Out, reason required in `note`), capped at the surplus, so it can never cancel an order or refund goods. `order_summary.received` is net of refunds (`paid_in` and `refunded` are shown separately). Purchase payments still only go Out. Refunds cannot be edited or deleted. Reports count refunds as money out. |
 | Split shipments | If only part of an order is in stock, ship the available lines now and the rest later. Stock leaves per SHIPPED LINE (not at order time). Each function takes the shipping charge for that parcel. `ship_available()` ships whatever is in stock; `ship_items()` ships chosen lines/quantities; `ship_order()`/`ship_orders()` ship everything remaining. All are atomic (any failure rolls back everything). Views `order_fulfilment` and `purchase_needed` show what is waiting and what to buy. |
 | Data migration | The original Excel records were loaded by `migration/migrate.py`, with reconciliation checks that roll the load back if stock, purchase totals or payments stop tying. The source workbook and reports contain business data and are never committed. |
+| Customers (migration 006) | A new customer needs a phone number and ONE delivery address (line 1, city, state, 6-digit PIN code; line 2 optional), stored on the customer row. The phone is unique by its last 10 digits, so "+91 98765 43210" and "098765 43210" are the same customer. Enforced by the API and by a database trigger for the app role; customers from the original load are left as they are and are asked for the details the next time they are edited. Suppliers are unchanged. |
 | Database | PostgreSQL. Hosting: Supabase Pro now, AWS RDS later. 2-3 users. |
 
 ## Design rules to keep

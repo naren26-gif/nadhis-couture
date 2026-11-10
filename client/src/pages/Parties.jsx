@@ -80,6 +80,9 @@ export default function Parties({ kind }) {
     </div>
   );
 
+  const address = (item) =>
+    [item.address_line1, item.address_line2, item.city, item.state, item.pincode].filter(Boolean).join(', ');
+
   const phone = (item) => (item.phone ? <a href={`tel:${item.phone.replace(/\s/g, '')}`}>{item.phone}</a> : <span className="muted">-</span>);
 
   return (
@@ -95,7 +98,7 @@ export default function Parties({ kind }) {
       <div className="card filters">
         <div className="field grow">
           <label htmlFor="search">Search</label>
-          <input id="search" type="search" placeholder="Name, code, phone or location" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input id="search" type="search" placeholder={k.hasAddress ? 'Name, code, phone, city or PIN code' : 'Name, code, phone or location'} value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <div className="filter-foot">
           <label className="check">
@@ -124,7 +127,7 @@ export default function Parties({ kind }) {
                 <table>
                   <thead>
                     <tr>
-                      <th>Code</th><th>Name</th>{k.hasContactPerson && <th>Contact</th>}<th>Phone</th><th>Email</th><th>Location</th><th />
+                      <th>Code</th><th>Name</th>{k.hasContactPerson && <th>Contact</th>}<th>Phone</th><th>Email</th><th>{k.hasAddress ? 'Address' : 'Location'}</th><th />
                     </tr>
                   </thead>
                   <tbody>
@@ -135,7 +138,7 @@ export default function Parties({ kind }) {
                         {k.hasContactPerson && <td>{item.contact_person || <span className="muted">-</span>}</td>}
                         <td>{phone(item)}</td>
                         <td>{item.email || <span className="muted">-</span>}</td>
-                        <td>{item.location || <span className="muted">-</span>}</td>
+                        <td>{(k.hasAddress && address(item)) || item.location || <span className="muted">-</span>}</td>
                         <td>{actions(item)}</td>
                       </tr>
                     ))}
@@ -154,6 +157,7 @@ export default function Parties({ kind }) {
                     {k.hasContactPerson && item.contact_person && <div>{item.contact_person}</div>}
                     <div>{phone(item)}</div>
                     {item.email && <div className="muted">{item.email}</div>}
+                    {k.hasAddress && address(item) && <div className="muted">{address(item)}</div>}
                     {item.location && <div className="muted">{item.location}</div>}
                     <div className="top-gap-sm">{actions(item)}</div>
                   </div>

@@ -8,4 +8,5 @@ export const customersRouter = buildPartyRouter({
   prefix: 'CUST',
   width: 6, // CUST000001 (the shop's existing customer codes are 6 digits)
   hasContactPerson: false,
+  hasAddress: true, // phone and one delivery address are required
 });

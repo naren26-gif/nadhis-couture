@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { closePool } from '../src/db.js';
-import { startTestApp } from './helpers.js';
+import { ADDRESS, startTestApp } from './helpers.js';
 
 let t;
 beforeAll(async () => {
@@ -14,7 +14,7 @@ afterAll(async () => {
 
 const KINDS = [
   { path: '/api/suppliers', prefix: 'SPLR', width: 4, extra: { contact_person: 'Zz Contact' } },
-  { path: '/api/customers', prefix: 'CUST', width: 6, extra: {} },
+  { path: '/api/customers', prefix: 'CUST', width: 6, extra: ADDRESS },
 ];
 
 const number = (code) => Number(code.replace(/^\D+/, ''));
@@ -54,9 +54,10 @@ describe.each(KINDS)('$path', ({ path, prefix, width, extra }) => {
   });
 
   it('turns empty optional fields into nothing', async () => {
-    const res = await make({ phone: '', email: '', location: '' });
+    // a customer must have a phone (see below); a supplier may leave it empty
+    const res = await make({ phone: path.includes('customers') ? '+91 90000 66666' : '', email: '', location: '' });
     expect(res.status).toBe(201);
-    expect(res.body.item.phone).toBeNull();
+    if (!path.includes('customers')) expect(res.body.item.phone).toBeNull();
     expect(res.body.item.email).toBeNull();
   });
 
@@ -69,7 +70,7 @@ describe.each(KINDS)('$path', ({ path, prefix, width, extra }) => {
     expect(badPhone.status).toBe(400);
     expect(badPhone.body.error).toMatch(/phone number/i);
 
-    const badEmail = await make({ phone: '', email: 'not-an-email' });
+    const badEmail = await make({ phone: '+91 90000 77777', email: 'not-an-email' });
     expect(badEmail.status).toBe(400);
     expect(badEmail.body.error).toMatch(/email/i);
   });
@@ -116,5 +117,68 @@ describe.each(KINDS)('$path', ({ path, prefix, width, extra }) => {
 
     const missing = await request(t.app).get(`${path}/11111111-1111-4111-8111-111111111111`);
     expect(missing.status).toBe(404);
+  });
+});
+
+describe('customers need a phone and one delivery address', () => {
+  const path = '/api/customers';
+  const make = (overrides = {}) =>
+    request(t.app).post(path).send({ name: 'Zz Address Person', phone: '+91 90000 81111', ...ADDRESS, ...overrides });
+
+  it('saves and returns the address', async () => {
+    const res = await make({ address_line2: 'Flat 2', phone: '+91 90000 81112' });
+    expect(res.status).toBe(201);
+    expect(res.body.item).toMatchObject({ address_line1: '1 Test Street', address_line2: 'Flat 2', city: 'Chennai', state: 'Tamil Nadu', pincode: '600001' });
+    const found = await request(t.app).get(path).query({ search: '600001' });
+    expect(found.body.items.map((i) => i.id)).toContain(res.body.item.id);
+  });
+
+  it('refuses a missing phone or address part with a plain message', async () => {
+    const cases = [
+      [{ phone: '' }, /phone number/i],
+      [{ phone: undefined }, /phone number/i],
+      [{ address_line1: '' }, /address/i],
+      [{ city: '  ' }, /city/i],
+      [{ state: '' }, /state/i],
+      [{ pincode: '' }, /PIN code/i],
+      [{ pincode: '60001' }, /PIN code/i],
+      [{ pincode: '60000A' }, /PIN code/i],
+    ];
+    for (const [overrides, message] of cases) {
+      const res = await make({ phone: '+91 90000 81113', ...overrides });
+      expect(res.status, JSON.stringify(overrides)).toBe(400);
+      expect(res.body.error).toMatch(message);
+    }
+  });
+
+  it('treats the same number written differently as a duplicate', async () => {
+    const first = await make({ name: 'Zz Digits Owner', phone: '+91 98765 43210' });
+    expect(first.status).toBe(201);
+    for (const phone of ['098765 43210', '9876543210', '+91-98765-43210']) {
+      const dup = await make({ name: 'Zz Digits Other', phone });
+      expect(dup.status, phone).toBe(409);
+      expect(dup.body.error).toBe(`That phone number already belongs to Zz Digits Owner (${first.body.item.code}).`);
+    }
+  });
+
+  it('asks an old customer without an address for one when edited, but hiding still works', async () => {
+    // a customer from the original Excel load (no phone, no address); the test connection is the app role, so one
+    // cannot be inserted here and an existing one is used (all changes are rolled back at the end)
+    const all = await request(t.app).get(path).query({ inactive: 'true' });
+    const old = all.body.items.find((i) => !i.phone && !i.address_line1);
+    if (!old) return;
+    const id = old.id;
+    const edit = await request(t.app).patch(`${path}/${id}`).send({ name: old.name });
+    expect(edit.status).toBe(400);
+    const hide = await request(t.app).post(`${path}/${id}/deactivate`);
+    expect(hide.status).toBe(200);
+    const fixed = await request(t.app).patch(`${path}/${id}`).send({ name: old.name, phone: '+91 90000 81114', ...ADDRESS });
+    expect(fixed.status).toBe(200);
+  });
+
+  it('suppliers are unchanged: phone stays optional and no address is needed', async () => {
+    const res = await request(t.app).post('/api/suppliers').send({ name: 'Zz Plain Supplier' });
+    expect(res.status).toBe(201);
+    expect(res.body.item.phone).toBeNull();
   });
 });

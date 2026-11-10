@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import Decimal from 'decimal.js';
 import { closePool, query } from '../src/db.js';
-import { startTestApp } from './helpers.js';
+import { ADDRESS, startTestApp } from './helpers.js';
 
 let t;
 let X; // list 499.99, cost 100
@@ -30,7 +30,7 @@ const APRIL = { from: '2019-04', to: '2019-04' };
 
 beforeAll(async () => {
   t = await startTestApp();
-  const customer = (await api().post('/api/customers').send({ name: 'Zz Report Customer', phone: '+91 90000 44441' })).body.item.id;
+  const customer = (await api().post('/api/customers').send({ name: 'Zz Report Customer', phone: '+91 90000 44441', ...ADDRESS })).body.item.id;
   const product = (await api().post('/api/products').send({ name: 'Zz Report Product' })).body;
   const make = async (sku, size, price) =>
     (await api().post('/api/variants').send({ product_id: product.id, fabric: 'Cotton', size, colour: 'Black', unit_cost: '100.00', list_price: price, sku })).body.variant;
