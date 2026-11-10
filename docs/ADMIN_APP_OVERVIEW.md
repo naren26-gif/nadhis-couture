@@ -199,7 +199,8 @@ countries: typed region and a 3-10 character postal code. Country names come fro
 (`server/src/countries.js`, `GET /api/customers/countries`). International shipping charges and multiple currencies are
 NOT built (decided: later); phone + address required for new customers by the API and by a database trigger (app role only); phone
 unique as a whole number via `phone_key()` (`customer_phone_key_uq`; +91 / leading 0 / spaces ignored, a 10-digit number
-without a country code is taken as Indian); old customers are asked for the details when next edited.
+without a country code is taken as Indian). Phone digits are validated (migration 008, `server/src/phone.js`): India = exactly
+10 digits, other countries = starts with + and the country code, 8-15 digits in total; old customers are asked for the details when next edited.
 Production still needs migration 006 (take a backup first). The details below are the original design notes; where they
 differ (for example the trigger instead of NOT VALID constraints), the built behaviour above wins. NOTE: the trigger only
 checks the `app_backend` role, so when a storefront role is added, extend `require_customer_contact()` to cover it (or

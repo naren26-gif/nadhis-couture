@@ -8,6 +8,7 @@ import { nextCode } from '../codes.js';
 import { requireRole } from '../auth/index.js';
 import { UserError } from '../errors.js';
 import { COUNTRIES, HOME_COUNTRY, postalCodeOk } from '../countries.js';
+import { phoneProblem } from '../phone.js';
 
 const PHONE = /^[0-9+ ()-]{6,20}$/; // same rule as the database
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -63,6 +64,10 @@ export function buildPartyRouter({ noun, table, idColumn, codeColumn, prefix, wi
   }
   // the postal code format depends on the country: India = 6-digit PIN code, elsewhere 3 to 10 letters/digits
   const bodySchema = z.object(shape).superRefine((v, ctx) => {
+    if (hasAddress && COUNTRIES.includes(v.country) && v.phone) {
+      const problem = phoneProblem(v.country, v.phone);
+      if (problem) ctx.addIssue({ code: 'custom', path: ['phone'], message: problem });
+    }
     if (hasAddress && COUNTRIES.includes(v.country) && v.pincode && !postalCodeOk(v.country, v.pincode)) {
       ctx.addIssue({
         code: 'custom',

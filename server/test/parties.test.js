@@ -42,13 +42,13 @@ describe.each(KINDS)('$path', ({ path, prefix, width, extra }) => {
   });
 
   it('keeps the phone as text and the code unchanged when editing', async () => {
-    const created = await make({ phone: '0044 123 456' });
+    const created = await make({ phone: '098765 00001' });
     const { id, code } = created.body.item;
-    expect(created.body.item.phone).toBe('0044 123 456');
+    expect(created.body.item.phone).toBe('098765 00001');
 
     const edited = await request(t.app)
       .patch(`${path}/${id}`)
-      .send({ name: 'Zz Renamed', phone: '0044 123 456', email: 'zz@example.com', location: 'Chennai', ...extra });
+      .send({ name: 'Zz Renamed', phone: '098765 00001', email: 'zz@example.com', location: 'Chennai', ...extra });
     expect(edited.status).toBe(200);
     expect(edited.body.item).toMatchObject({ name: 'Zz Renamed', code, email: 'zz@example.com', location: 'Chennai' });
   });
@@ -211,6 +211,26 @@ describe('customers need a phone and one delivery address', () => {
     expect(abroad.status).toBe(201);
     const again = await make({ name: 'Zz India Again', phone: '098765 11111' });
     expect(again.status).toBe(409);
+  });
+
+  it('requires 10 digits for India and the country code abroad', async () => {
+    for (const phone of ['98765 4321', '9876543', '+91 98765 4321', '987654321012']) {
+      const bad = await make({ phone });
+      expect(bad.status, phone).toBe(400);
+      expect(bad.body.error, phone).toMatch(/10 digits/);
+    }
+    for (const [phone, message] of [['7700 900123', /country code/], ['+44 770', /too short/], ['+44 7700 90012345678', /too short or too long/]]) {
+      const bad = await make({ phone, country: 'United Kingdom', state: 'England', pincode: 'SW1A 1AA' });
+      expect(bad.status, phone).toBe(400);
+      expect(bad.body.error, phone).toMatch(message);
+    }
+    // all the ways of writing a valid Indian number, and a short foreign one that carries its country code
+    for (const [i, phone] of ['98765 22221', '098765 22222', '+91 98765 22223', '0091 98765 22224'].entries()) {
+      const ok = await make({ name: `Zz Ten Digits ${i}`, phone });
+      expect(ok.status, phone).toBe(201);
+    }
+    const sg = await make({ name: 'Zz Singapore', phone: '+65 8123 4567', country: 'Singapore', state: 'Singapore', pincode: '049145' });
+    expect(sg.status).toBe(201);
   });
 
   it('lists the countries with India first', async () => {

@@ -102,8 +102,9 @@ export default function PartyFormPage({ kind }) {
               <label htmlFor="phone">{k.hasAddress ? 'Phone' : 'Phone (optional)'}</label>
               <input id="phone" type="tel" inputMode="tel" value={form.phone} onChange={set('phone')} maxLength={20} required={k.hasAddress} />
               <div className="hint">
-                Digits, spaces, + ( ) -. For example +91 98765 43210
-                {k.hasAddress && '. Each customer needs their own number.'}
+                {k.hasAddress
+                  ? (india ? '10 digits, for example 98765 43210. Each customer needs their own number.' : 'Start with the country code, for example +44 7700 900123.')
+                  : 'Digits, spaces, + ( ) -. For example +91 98765 43210'}
               </div>
             </div>
             <div className="field">
