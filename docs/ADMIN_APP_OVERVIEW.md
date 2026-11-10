@@ -193,9 +193,13 @@ Open item for the owner: whether a sold-out item can offer "notify me when back 
 
 ## 7B. DECIDED AND BUILT (migration 006, applied to DEV): customer phone and address are mandatory; phone is unique
 
-**Built in the admin app:** one saved address per customer on the `customer` row (`address_line1`, `address_line2`, `city`,
-`state`, `pincode`); phone + address required for new customers by the API and by a database trigger (app role only); phone
-unique by its last 10 digits (`customer_phone_digits_uq`); old customers are asked for the details when next edited.
+**Built in the admin app (migrations 006 + 007):** one saved address per customer on the `customer` row (`address_line1`,
+`address_line2`, `city`, `state`, `country` (default India), `pincode`). India: state from a list and a 6-digit PIN code; other
+countries: typed region and a 3-10 character postal code. Country names come from one server list
+(`server/src/countries.js`, `GET /api/customers/countries`). International shipping charges and multiple currencies are
+NOT built (decided: later); phone + address required for new customers by the API and by a database trigger (app role only); phone
+unique as a whole number via `phone_key()` (`customer_phone_key_uq`; +91 / leading 0 / spaces ignored, a 10-digit number
+without a country code is taken as Indian); old customers are asked for the details when next edited.
 Production still needs migration 006 (take a backup first). The details below are the original design notes; where they
 differ (for example the trigger instead of NOT VALID constraints), the built behaviour above wins. NOTE: the trigger only
 checks the `app_backend` role, so when a storefront role is added, extend `require_customer_contact()` to cover it (or

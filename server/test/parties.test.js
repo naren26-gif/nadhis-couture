@@ -140,7 +140,7 @@ describe('customers need a phone and one delivery address', () => {
       [{ address_line1: '' }, /address/i],
       [{ city: '  ' }, /city/i],
       [{ state: '' }, /state/i],
-      [{ pincode: '' }, /PIN code/i],
+      [{ pincode: '' }, /PIN \/ postal code/i],
       [{ pincode: '60001' }, /PIN code/i],
       [{ pincode: '60000A' }, /PIN code/i],
     ];
@@ -174,6 +174,50 @@ describe('customers need a phone and one delivery address', () => {
     expect(hide.status).toBe(200);
     const fixed = await request(t.app).patch(`${path}/${id}`).send({ name: old.name, phone: '+91 90000 81114', ...ADDRESS });
     expect(fixed.status).toBe(200);
+  });
+
+  it('takes a customer in another country: free-text region, postal code, full phone number', async () => {
+    const uk = await make({
+      name: 'Zz London Customer', phone: '+44 7700 900123', country: 'United Kingdom', state: 'England', city: 'London', pincode: 'SW1A 1AA',
+    });
+    expect(uk.status).toBe(201);
+    expect(uk.body.item).toMatchObject({ country: 'United Kingdom', state: 'England', pincode: 'SW1A 1AA' });
+    const found = await request(t.app).get(path).query({ search: 'united kingdom' });
+    expect(found.body.items.map((i) => i.id)).toContain(uk.body.item.id);
+  });
+
+  it('keeps the India rules for India and refuses unknown countries', async () => {
+    const ukCodeInIndia = await make({ phone: '+91 90000 82221', pincode: 'SW1A 1AA' });
+    expect(ukCodeInIndia.status).toBe(400);
+    expect(ukCodeInIndia.body.error).toMatch(/PIN code/i);
+
+    const pinInUk = await make({ phone: '+91 90000 82222', country: 'United Kingdom', pincode: '1' });
+    expect(pinInUk.status).toBe(400);
+    expect(pinInUk.body.error).toMatch(/postal code/i);
+
+    for (const country of ['india', 'Narnia', '']) {
+      const bad = await make({ phone: '+91 90000 82223', country });
+      expect(bad.status, country).toBe(400);
+      expect(bad.body.error).toMatch(/country/i);
+    }
+    const noCountry = await make({ phone: '+91 90000 82224', country: undefined });
+    expect(noCountry.status).toBe(400);
+  });
+
+  it('does not mix up numbers from different countries that end in the same 10 digits', async () => {
+    const india = await make({ name: 'Zz India Number', phone: '+91 98765 11111' });
+    expect(india.status).toBe(201);
+    const abroad = await make({ name: 'Zz Abroad Number', phone: '+44 98765 11111', country: 'United Kingdom', state: 'England', pincode: 'SW1A 1AA' });
+    expect(abroad.status).toBe(201);
+    const again = await make({ name: 'Zz India Again', phone: '098765 11111' });
+    expect(again.status).toBe(409);
+  });
+
+  it('lists the countries with India first', async () => {
+    const res = await request(t.app).get('/api/customers/countries');
+    expect(res.status).toBe(200);
+    expect(res.body.countries[0]).toBe('India');
+    expect(res.body.countries).toContain('United Kingdom');
   });
 
   it('suppliers are unchanged: phone stays optional and no address is needed', async () => {

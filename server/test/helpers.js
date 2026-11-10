@@ -11,6 +11,7 @@ export const ADDRESS = {
   address_line1: '1 Test Street',
   city: 'Chennai',
   state: 'Tamil Nadu',
+  country: 'India',
   pincode: '600001',
 };
 

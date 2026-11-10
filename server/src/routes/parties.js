@@ -7,6 +7,7 @@ import { getDb, inTransaction } from '../db.js';
 import { nextCode } from '../codes.js';
 import { requireRole } from '../auth/index.js';
 import { UserError } from '../errors.js';
+import { COUNTRIES, HOME_COUNTRY, postalCodeOk } from '../countries.js';
 
 const PHONE = /^[0-9+ ()-]{6,20}$/; // same rule as the database
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -21,7 +22,6 @@ const text = (label, max) =>
   optional(z.string().trim().max(max, `The ${label} is too long (${max} characters at most).`));
 
 const PHONE_RULE = 'The phone number can only have digits, spaces, + ( ) - and must be 6 to 20 characters.';
-const PINCODE = /^[0-9]{6}$/;
 
 // A text field that must be filled in.
 const required = (message, max, label) =>
@@ -54,24 +54,36 @@ export function buildPartyRouter({ noun, table, idColumn, codeColumn, prefix, wi
     shape.address_line1 = required('Please enter the address (line 1).', 150, 'address');
     shape.address_line2 = text('address (line 2)', 150);
     shape.city = required('Please enter the city.', 80, 'city');
-    shape.state = required('Please choose the state.', 60, 'state');
-    shape.pincode = z
-      .string({ required_error: 'Please enter the PIN code.' })
+    shape.state = required('Please choose the state (or enter the region).', 60, 'state');
+    shape.country = z
+      .string({ required_error: 'Please choose the country.' })
       .trim()
-      .refine((value) => PINCODE.test(value), 'That does not look like a valid PIN code (6 digits).');
+      .refine((value) => COUNTRIES.includes(value), 'Please choose the country from the list.');
+    shape.pincode = required('Please enter the PIN / postal code.', 10, 'PIN / postal code');
   }
-  const bodySchema = z.object(shape);
+  // the postal code format depends on the country: India = 6-digit PIN code, elsewhere 3 to 10 letters/digits
+  const bodySchema = z.object(shape).superRefine((v, ctx) => {
+    if (hasAddress && COUNTRIES.includes(v.country) && v.pincode && !postalCodeOk(v.country, v.pincode)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['pincode'],
+        message: v.country === HOME_COUNTRY
+          ? 'That does not look like a valid PIN code (6 digits).'
+          : 'That does not look like a valid postal code (3 to 10 letters or digits).',
+      });
+    }
+  });
 
   const fields = [
     'name', 'phone', 'email', 'location',
     ...(hasContactPerson ? ['contact_person'] : []),
-    ...(hasAddress ? ['address_line1', 'address_line2', 'city', 'state', 'pincode'] : []),
+    ...(hasAddress ? ['address_line1', 'address_line2', 'city', 'state', 'country', 'pincode'] : []),
   ];
   const columns = `${idColumn} AS id, ${codeColumn} AS code, name, ${hasContactPerson ? 'contact_person, ' : ''}phone, email, location, ${
-    hasAddress ? 'address_line1, address_line2, city, state, pincode, ' : ''
+    hasAddress ? 'address_line1, address_line2, city, state, country, pincode, ' : ''
   }is_active`;
   const addressSearch = hasAddress
-    ? `OR strpos(lower(concat_ws(' ', address_line1, address_line2, city, state, pincode)), lower($1)) > 0`
+    ? `OR strpos(lower(concat_ws(' ', address_line1, address_line2, city, state, country, pincode)), lower($1)) > 0`
     : '';
 
   const listQuery = z.object({
@@ -86,11 +98,12 @@ export function buildPartyRouter({ noun, table, idColumn, codeColumn, prefix, wi
 
   // A phone number can belong to one person only. Check first so we can say who has it (asking after the database
   // has refused would fail inside the aborted transaction). The database's unique index remains the real guard.
-  // Customers compare the LAST 10 DIGITS, so "98765 43210" and "+91 98765-43210" are the same number.
+  // Customers compare phone_key() (migration 007), so "98765 43210" and "+91 98765-43210" are the same number, while
+  // "+44 98765 43210" is a different one.
   async function checkPhoneFree(db, phone, exceptId) {
     if (!phone) return;
     const sameNumber = hasAddress
-      ? `right(regexp_replace(phone, '\\D', '', 'g'), 10) = right(regexp_replace($1, '\\D', '', 'g'), 10)`
+      ? 'phone_key(phone) = phone_key($1)'
       : 'phone = $1';
     const other = await db.query(
       `SELECT name, ${codeColumn} AS code FROM ${table} WHERE ${sameNumber} AND ${idColumn} IS DISTINCT FROM $2`,
@@ -118,6 +131,9 @@ export function buildPartyRouter({ noun, table, idColumn, codeColumn, prefix, wi
       next(err);
     }
   });
+
+  // The countries for the customer form's dropdown (before '/:id' so it is not taken for an id).
+  if (hasAddress) router.get('/countries', (req, res) => res.json({ countries: COUNTRIES }));
 
   router.get('/:id', async (req, res, next) => {
     try {

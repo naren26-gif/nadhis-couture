@@ -81,7 +81,7 @@ export default function Parties({ kind }) {
   );
 
   const address = (item) =>
-    [item.address_line1, item.address_line2, item.city, item.state, item.pincode].filter(Boolean).join(', ');
+    [item.address_line1, item.address_line2, item.city, item.state, item.country !== 'India' && item.country, item.pincode].filter(Boolean).join(', ');
 
   const phone = (item) => (item.phone ? <a href={`tel:${item.phone.replace(/\s/g, '')}`}>{item.phone}</a> : <span className="muted">-</span>);
 
