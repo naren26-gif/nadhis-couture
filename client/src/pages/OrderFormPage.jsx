@@ -4,6 +4,7 @@ import { api } from '../api.js';
 import { formatInr, toPaise } from '../money.js';
 import Modal from '../components/Modal.jsx';
 import VariantPicker from '../components/VariantPicker.jsx';
+import AddressFields, { ADDRESS_KEYS, EMPTY_ADDRESS, phoneHint } from '../components/AddressFields.jsx';
 
 const todayInIndia = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 let nextKey = 1;
@@ -11,8 +12,7 @@ const newLine = () => ({ key: nextKey++, item_id: null, variant_id: '', quantity
 
 // Small pop-up to add a customer without leaving the order form.
 function QuickCustomerDialog({ onSaved, onClose }) {
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [form, setForm] = useState({ name: '', phone: '', ...EMPTY_ADDRESS });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -22,7 +22,10 @@ function QuickCustomerDialog({ onSaved, onClose }) {
     setError('');
     setBusy(true);
     try {
-      const { item } = await api('/customers', { method: 'POST', body: { name, phone } });
+      const { item } = await api('/customers', {
+        method: 'POST',
+        body: { name: form.name, phone: form.phone, ...Object.fromEntries(ADDRESS_KEYS.map((key) => [key, form[key]])) },
+      });
       onSaved(item);
     } catch (err) {
       setError(err.message);
@@ -36,12 +39,15 @@ function QuickCustomerDialog({ onSaved, onClose }) {
         {error && <div className="alert error" role="alert">{error}</div>}
         <div className="field">
           <label htmlFor="qc-name">Name</label>
-          <input id="qc-name" type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} autoFocus required />
+          <input id="qc-name" type="text" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} maxLength={100} autoFocus required />
         </div>
         <div className="field">
-          <label htmlFor="qc-phone">Phone (optional)</label>
-          <input id="qc-phone" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={20} />
+          <label htmlFor="qc-phone">Phone</label>
+          <input id="qc-phone" type="tel" inputMode="tel" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} maxLength={20} required />
+          <div className="hint">{phoneHint(form.country)}</div>
         </div>
+        <h3>Delivery address</h3>
+        <AddressFields form={form} setForm={setForm} idPrefix="qc-" />
         <div className="actions">
           <button type="button" className="btn secondary" onClick={onClose}>Cancel</button>
           <button type="submit" className="btn" disabled={busy}>{busy ? 'Saving...' : 'Add customer'}</button>
