@@ -24,15 +24,21 @@ export function prefixFallback(productName, fabric) {
   return initials(productName) + initials(fabric);
 }
 
+// The size as it appears inside a SKU. A SKU only allows letters, numbers, dashes and underscores,
+// so the "N/A" size becomes NA.
+function sizeToken(size) {
+  return String(size).toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+}
+
 // existing = rows { sku, product_id, fabric, size, colour } for ALL variants (used to copy conventions)
 export function suggestSku({ productId, productName, fabric, size, colour }, existing) {
-  const sizeCode = String(size).toUpperCase();
+  const sizeCode = sizeToken(size);
 
   // prefix: what other variants of this product+fabric already use (the part before -SIZE-COLOUR)
   let prefix = null;
   const sibling = existing.find((v) => v.product_id === productId && v.fabric === fabric);
   if (sibling) {
-    const tail = `-${sibling.size.toUpperCase()}-`;
+    const tail = `-${sizeToken(sibling.size)}-`;
     const at = sibling.sku.indexOf(tail);
     if (at > 0) prefix = sibling.sku.slice(0, at);
   }

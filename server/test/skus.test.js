@@ -31,6 +31,16 @@ describe('SKU suggestions', () => {
     expect(sku).toBe('UMRC-M-PK-2');
   });
 
+  it('writes the N/A size as NA, because a SKU cannot contain a slash', () => {
+    const sku = suggestSku({ productId: 'new', productName: 'Anarkali Maxi', fabric: 'Banaras', size: 'N/A', colour: 'Ivory' }, existing);
+    expect(sku).toBe('AMB-NA-IVY');
+    const next = suggestSku(
+      { productId: 'new', productName: 'Anarkali Maxi', fabric: 'Banaras', size: 'N/A', colour: 'Pink' },
+      [...existing, { sku: 'AMB-NA-IVY', product_id: 'new', fabric: 'Banaras', size: 'N/A', colour: 'Ivory' }],
+    );
+    expect(next).toBe('AMB-NA-PK');
+  });
+
   it('fallback rules', () => {
     expect(colourCodeFallback('Black')).toBe('BLK');
     expect(colourCodeFallback('Light brown')).toBe('LB');
