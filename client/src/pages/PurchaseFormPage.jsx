@@ -3,6 +3,55 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { formatInr, toPaise } from '../money.js';
 import VariantPicker from '../components/VariantPicker.jsx';
+import Modal from '../components/Modal.jsx';
+
+// Pop-up to add a new type of purchase. The owner says whether goods of this type add pieces to stock.
+function AddTypeDialog({ onSave, onClose }) {
+  const [name, setName] = useState('');
+  const [addsStock, setAddsStock] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e) {
+    e.preventDefault();
+    e.stopPropagation(); // this pop-up sits inside the purchase form
+    if (addsStock === '') { setError('Please say whether this type adds stock.'); return; }
+    setError('');
+    setBusy(true);
+    try {
+      await onSave(name, addsStock === 'yes');
+      onClose();
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal title="Add a new type of purchase" onClose={onClose}>
+      <form onSubmit={submit}>
+        {error && <div className="alert error" role="alert">{error}</div>}
+        <div className="field">
+          <label htmlFor="new-type-name">Type of purchase</label>
+          <input id="new-type-name" type="text" value={name} placeholder="e.g. Packing material" onChange={(e) => setName(e.target.value)} autoFocus required />
+        </div>
+        <div className="field">
+          <label htmlFor="new-type-stock">Does this add pieces to stock?</label>
+          <select id="new-type-stock" value={addsStock} onChange={(e) => setAddsStock(e.target.value)} required>
+            <option value="">Choose...</option>
+            <option value="yes">Yes - clothes I will sell (stock is added when received)</option>
+            <option value="no">No - supplies, equipment or other costs</option>
+          </select>
+          <div className="hint">This can't be changed later.</div>
+        </div>
+        <div className="actions">
+          <button type="button" className="btn secondary" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn" disabled={busy}>{busy ? 'Saving...' : 'Add'}</button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
 
 const todayInIndia = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 let nextKey = 1;
@@ -22,6 +71,7 @@ export default function PurchaseFormPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [showAddType, setShowAddType] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -94,6 +144,13 @@ export default function PurchaseFormPage() {
     }
   }
 
+  // Save a new purchase type, add it to the dropdown and select it.
+  async function addType(name, addsStock) {
+    const saved = await api('/lookups/purchase-types', { method: 'POST', body: { name, adds_stock: addsStock } });
+    setLookups((lk) => ({ ...lk, types: [...lk.types, { name: saved.name, affects_stock: saved.affects_stock }] }));
+    setForm((f) => ({ ...f, purchase_type: saved.name }));
+  }
+
   const taken = lines.map((l) => l.variant_id).filter(Boolean);
 
   return (
@@ -119,7 +176,10 @@ export default function PurchaseFormPage() {
               <input id="date" type="date" value={form.order_date} max={todayInIndia()} onChange={set('order_date')} required />
             </div>
             <div className="field">
-              <label htmlFor="type">Type of purchase</label>
+              <div className="label-row">
+                <label htmlFor="type">Type of purchase</label>
+                {!editing && <button type="button" className="linkbtn" onClick={() => setShowAddType(true)}>+ Add new</button>}
+              </div>
               <select id="type" value={form.purchase_type} onChange={set('purchase_type')} disabled={editing} required>
                 <option value="">Choose a type...</option>
                 {lookups.types.map((t) => <option key={t.name} value={t.name}>{t.name}</option>)}
@@ -184,6 +244,8 @@ export default function PurchaseFormPage() {
           </div>
         </form>
       )}
+
+      {showAddType && <AddTypeDialog onClose={() => setShowAddType(false)} onSave={addType} />}
     </>
   );
 }

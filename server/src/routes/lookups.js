@@ -79,6 +79,25 @@ lookupsRouter.post('/colours', async (req, res, next) => {
   }
 });
 
+// A new type of purchase. "adds_stock" says whether receiving goods of this type puts pieces into inventory.
+lookupsRouter.post('/purchase-types', async (req, res, next) => {
+  try {
+    const { name } = nameSchema('type of purchase').parse(req.body);
+    const addsStock = z.boolean({ required_error: 'Please say whether this type adds stock.', invalid_type_error: 'Please say whether this type adds stock.' }).parse(req.body.adds_stock);
+    const value = tidyName(name);
+    await addIfNew(
+      getDb(req),
+      'type of purchase',
+      'SELECT 1 FROM purchase_type_ref WHERE lower(name) = lower($1)',
+      'INSERT INTO purchase_type_ref (name, affects_stock) VALUES ($1, $2)',
+      [value, addsStock],
+    );
+    res.status(201).json({ name: value, affects_stock: addsStock });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // A new size goes at the end of the size order.
 lookupsRouter.post('/sizes', async (req, res, next) => {
   try {
